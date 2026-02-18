@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { automationsApi, usersApi, sectorsApi } from '../services/api'
 import { 
   Bot, Users, Building2, Plus, Trash2, Edit, 
-  AlertCircle, CheckCircle
+  AlertCircle, CheckCircle, LogOut, X
 } from 'lucide-react'
 
 type Tab = 'automations' | 'users' | 'sectors'
@@ -46,6 +46,9 @@ export default function Admin() {
   const { user, logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('automations')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [formData, setFormData] = useState<any>({})
 
   // Queries
   const { data: automations = [], isLoading: loadingAutomations } = useQuery<Automation[]>({
@@ -64,14 +67,62 @@ export default function Admin() {
   })
 
   // Mutations
+  const createAutomation = useMutation({
+    mutationFn: (data: any) => automationsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
+      setIsModalOpen(false)
+    },
+  })
+
+  const updateAutomation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => automationsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
+      setIsModalOpen(false)
+    },
+  })
+
   const deleteAutomation = useMutation({
     mutationFn: (id: number) => automationsApi.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['automations-admin'] }),
   })
 
+  const createUser = useMutation({
+    mutationFn: (data: any) => usersApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setIsModalOpen(false)
+    },
+  })
+
+  const updateUser = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setIsModalOpen(false)
+    },
+  })
+
   const deleteUser = useMutation({
     mutationFn: (id: number) => usersApi.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  })
+
+  const createSector = useMutation({
+    mutationFn: (data: any) => sectorsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sectors'] })
+      setIsModalOpen(false)
+    },
+  })
+
+  const updateSector = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => sectorsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sectors'] })
+      setIsModalOpen(false)
+    },
   })
 
   const deleteSector = useMutation({
@@ -87,6 +138,47 @@ export default function Admin() {
 
   const handleLogout = () => {
     logout()
+  }
+
+  const handleOpenCreate = () => {
+    setEditingId(null)
+    setFormData({})
+    // Defaults
+    if (activeTab === 'automations') {
+      setFormData({ is_active: true, sector_ids: [] })
+    } else if (activeTab === 'users') {
+      setFormData({ is_active: true, is_admin: false })
+    }
+    setIsModalOpen(true)
+  }
+
+  const handleOpenEdit = (item: any) => {
+    setEditingId(item.id)
+    if (activeTab === 'automations') {
+      setFormData({
+        ...item,
+        sector_ids: item.sectors?.map((s: any) => s.id) || []
+      })
+    } else {
+      setFormData({ ...item })
+    }
+    setIsModalOpen(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (activeTab === 'automations') {
+      if (editingId) updateAutomation.mutate({ id: editingId, data: formData })
+      else createAutomation.mutate(formData)
+    } else if (activeTab === 'users') {
+      const data = { ...formData }
+      if (!data.password) delete data.password // Don't send empty password on update
+      if (editingId) updateUser.mutate({ id: editingId, data })
+      else createUser.mutate(formData)
+    } else if (activeTab === 'sectors') {
+      if (editingId) updateSector.mutate({ id: editingId, data: formData })
+      else createSector.mutate(formData)
+    }
   }
 
   return (
@@ -125,7 +217,7 @@ export default function Admin() {
                 onClick={handleLogout}
                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
-                <Bot className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -172,7 +264,10 @@ export default function Admin() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Gerenciar Automações</h2>
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={handleOpenCreate}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4" />
                 Nova Automação
               </button>
@@ -246,7 +341,10 @@ export default function Admin() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <button 
+                              onClick={() => handleOpenEdit(automation)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
@@ -271,7 +369,10 @@ export default function Admin() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Gerenciar Usuários</h2>
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={handleOpenCreate}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4" />
                 Novo Usuário
               </button>
@@ -340,7 +441,10 @@ export default function Admin() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <button 
+                              onClick={() => handleOpenEdit(userItem)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
@@ -365,7 +469,10 @@ export default function Admin() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Gerenciar Setores</h2>
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={handleOpenCreate}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4" />
                 Novo Setor
               </button>
@@ -395,7 +502,10 @@ export default function Admin() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => handleOpenEdit(sector)}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
@@ -413,6 +523,206 @@ export default function Admin() {
           </div>
         )}
       </main>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {editingId ? 'Editar' : 'Novo'} {
+                  activeTab === 'automations' ? 'Automação' :
+                  activeTab === 'users' ? 'Usuário' : 'Setor'
+                }
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Automation Fields */}
+              {activeTab === 'automations' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Título</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.title || ''}
+                      onChange={e => setFormData({...formData, title: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                    <textarea
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.description || ''}
+                      onChange={e => setFormData({...formData, description: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">URL de Destino</label>
+                    <input
+                      type="url"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.target_url || ''}
+                      onChange={e => setFormData({...formData, target_url: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Ícone (código)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: robot, clock, users"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.icon || ''}
+                      onChange={e => setFormData({...formData, icon: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Setores Permitidos</label>
+                    <select
+                      multiple
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                      value={formData.sector_ids?.map(String) || []}
+                      onChange={e => {
+                        const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                        setFormData({...formData, sector_ids: selected})
+                      }}
+                    >
+                      {(sectors || []).map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Segure Ctrl para selecionar múltiplos</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="is_active"
+                      checked={formData.is_active ?? true}
+                      onChange={e => setFormData({...formData, is_active: e.target.checked})}
+                    />
+                    <label htmlFor="is_active" className="text-sm font-medium text-slate-700">Ativo</label>
+                  </div>
+                </>
+              )}
+
+              {/* User Fields */}
+              {activeTab === 'users' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.full_name || ''}
+                      onChange={e => setFormData({...formData, full_name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.email || ''}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Senha {editingId && '(deixe em branco para manter)'}</label>
+                    <input
+                      type="password"
+                      required={!editingId}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.password || ''}
+                      onChange={e => setFormData({...formData, password: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Setor</label>
+                    <select
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.sector_id || ''}
+                      onChange={e => setFormData({...formData, sector_id: parseInt(e.target.value)})}
+                    >
+                      <option value="">Selecione um setor</option>
+                      {(sectors || []).map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="is_admin"
+                      checked={formData.is_admin || false}
+                      onChange={e => setFormData({...formData, is_admin: e.target.checked})}
+                    />
+                    <label htmlFor="is_admin" className="text-sm font-medium text-slate-700">Administrador</label>
+                  </div>
+                </>
+              )}
+
+              {/* Sector Fields */}
+              {activeTab === 'sectors' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.name || ''}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Slug (código)</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.slug || ''}
+                      onChange={e => setFormData({...formData, slug: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                    <textarea
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.description || ''}
+                      onChange={e => setFormData({...formData, description: e.target.value})}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

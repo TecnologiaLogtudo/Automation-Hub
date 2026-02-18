@@ -60,5 +60,6 @@ export const sectorsApi = {
   getAll: () => api.get('/sectors'),
   getById: (id: number) => api.get(`/sectors/${id}`),
   create: (data: any) => api.post('/sectors', data),
+  update: (id: number, data: any) => api.put(`/sectors/${id}`, data),
   delete: (id: number) => api.delete(`/sectors/${id}`),
 }
