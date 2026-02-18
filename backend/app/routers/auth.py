@@ -6,7 +6,7 @@ from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.database import get_db
 from app.models import User, Automation, Sector
 from app.schemas import (
-    LoginRequest, Token, UserCreate, UserResponse, UserUpdate,
+    LoginRequest, Token, UserCreate, UserResponse, UserWithSector, UserUpdate,
     AutomationCreate, AutomationResponse, AutomationUpdate,
     SectorCreate, SectorResponse, DashboardStats
 )
@@ -47,7 +47,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/auth/me", response_model=UserResponse)
+@router.get("/auth/me", response_model=UserWithSector)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current authenticated user info"""
     return current_user

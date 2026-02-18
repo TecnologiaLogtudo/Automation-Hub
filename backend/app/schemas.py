@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, computed_field
 
 
 # ============ Sector Schemas ============
@@ -52,6 +52,10 @@ class UserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @computed_field
+    def name(self) -> str:
+        return self.full_name
+
 
 class UserWithSector(UserResponse):
     sector: Optional[SectorResponse] = None
@@ -88,6 +92,10 @@ class AutomationResponse(AutomationBase):
     sectors: List[SectorResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    def name(self) -> str:
+        return self.title
 
 
 # ============ Auth Schemas ============
