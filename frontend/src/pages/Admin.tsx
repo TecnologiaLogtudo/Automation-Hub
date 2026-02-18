@@ -51,6 +51,13 @@ export default function Admin() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<any>({})
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+    type: 'danger' | 'warning'
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {}, type: 'danger' })
 
   // Queries
   const { data: automations = [], isLoading: loadingAutomations } = useQuery<Automation[]>({
@@ -173,6 +180,21 @@ export default function Admin() {
       })
     }
     setIsModalOpen(true)
+  }
+
+  const handleConfirmAction = (
+    title: string, 
+    message: string, 
+    action: () => void, 
+    type: 'danger' | 'warning' = 'danger'
+  ) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: action,
+      type
+    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -358,7 +380,11 @@ export default function Admin() {
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => deleteAutomation.mutate(automation.id)}
+                              onClick={() => handleConfirmAction(
+                                'Excluir Automação',
+                                `Tem certeza que deseja excluir a automação "${automation.title}"?`,
+                                () => deleteAutomation.mutate(automation.id)
+                              )}
                               className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -485,7 +511,12 @@ export default function Admin() {
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => toggleUserStatus.mutate({ id: userItem.id, is_active: !userItem.is_active })}
+                              onClick={() => handleConfirmAction(
+                                userItem.is_active ? 'Inativar Usuário' : 'Ativar Usuário',
+                                `Deseja realmente ${userItem.is_active ? 'inativar' : 'ativar'} o usuário "${userItem.full_name}"?`,
+                                () => toggleUserStatus.mutate({ id: userItem.id, is_active: !userItem.is_active }),
+                                'warning'
+                              )}
                               className={`p-2 rounded-lg transition-colors ${
                                 userItem.is_active 
                                   ? 'text-slate-400 hover:text-orange-600 hover:bg-orange-50' 
@@ -496,7 +527,11 @@ export default function Admin() {
                               <Power className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => deleteUser.mutate(userItem.id)}
+                              onClick={() => handleConfirmAction(
+                                'Excluir Usuário',
+                                `Tem certeza que deseja excluir o usuário "${userItem.full_name}"? Esta ação não pode ser desfeita.`,
+                                () => deleteUser.mutate(userItem.id)
+                              )}
                               className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Excluir"
                             >
@@ -558,7 +593,11 @@ export default function Admin() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteSector.mutate(sector.id)}
+                          onClick={() => handleConfirmAction(
+                            'Excluir Setor',
+                            `Tem certeza que deseja excluir o setor "${sector.name}"?`,
+                            () => deleteSector.mutate(sector.id)
+                          )}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -831,6 +870,46 @@ export default function Admin() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-2 rounded-full ${confirmModal.type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">{confirmModal.title}</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-6">
+              {confirmModal.message}
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm()
+                  setConfirmModal({ ...confirmModal, isOpen: false })
+                }}
+                className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                  confirmModal.type === 'danger' 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-orange-600 hover:bg-orange-700'
+                }`}
+              >
+                Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
