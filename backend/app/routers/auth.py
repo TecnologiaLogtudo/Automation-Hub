@@ -12,10 +12,10 @@ from app.schemas import (
 )
 from app.auth import verify_password, get_password_hash, create_access_token, get_current_user, get_current_admin
 
-router = APIRouter(prefix="/api/v1", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/auth/login", response_model=Token)
+@router.post("/login", response_model=Token)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user and return JWT token"""
     user = db.query(User).filter(User.email == request.email).first()
@@ -47,7 +47,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/auth/me", response_model=UserWithSector)
+@router.get("/me", response_model=UserWithSector)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current authenticated user info"""
     return current_user

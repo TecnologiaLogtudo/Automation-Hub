@@ -14,6 +14,11 @@ class SectorCreate(SectorBase):
     pass
 
 
+class SectorUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+
 class SectorResponse(SectorBase):
     id: int
     created_at: datetime
@@ -44,6 +49,7 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     sector_id: Optional[int] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = None
 
 
 class UserResponse(BaseModel):

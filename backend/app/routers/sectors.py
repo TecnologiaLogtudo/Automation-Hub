@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, Sector
-from app.schemas import SectorCreate, SectorResponse
+from app.schemas import SectorCreate, SectorResponse, SectorUpdate
 from app.auth import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/sectors", tags=["sectors"])
@@ -65,6 +65,30 @@ def create_sector(
     
     return db_sector
 
+
+@router.put("/{sector_id}", response_model=SectorResponse)
+def update_sector(
+    sector_id: int,
+    sector_update: SectorUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Update a sector (Admin only)"""
+    sector = db.query(Sector).filter(Sector.id == sector_id).first()
+    if not sector:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sector not found")
+
+    if sector_update.slug and sector_update.slug != sector.slug:
+        existing = db.query(Sector).filter(Sector.slug == sector_update.slug).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sector slug already exists")
+
+    for key, value in sector_update.model_dump(exclude_unset=True).items():
+        setattr(sector, key, value)
+
+    db.commit()
+    db.refresh(sector)
+    return sector
 
 @router.delete("/{sector_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_sector(

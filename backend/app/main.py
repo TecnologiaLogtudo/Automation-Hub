@@ -48,10 +48,10 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router)
-app.include_router(automations.router)
-app.include_router(users.router)
-app.include_router(sectors.router)
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(automations.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(sectors.router, prefix="/api/v1")
 
 
 @app.get("/health")
