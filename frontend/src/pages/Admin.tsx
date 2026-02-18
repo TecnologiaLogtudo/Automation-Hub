@@ -111,6 +111,11 @@ export default function Admin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 
+  const toggleUserStatus = useMutation({
+    mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) => usersApi.update(id, { is_active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  })
+
   const createSector = useMutation({
     mutationFn: (data: any) => sectorsApi.create(data),
     onSuccess: () => {
