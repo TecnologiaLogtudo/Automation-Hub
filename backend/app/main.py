@@ -30,9 +30,18 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# Precisamos definir as origens explicitamente para que cookies/tokens funcionem
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "https://automacao.logtudo.com.br",
+    f"https://{os.getenv('DOMAIN', 'automacao.logtudo.com.br')}"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
