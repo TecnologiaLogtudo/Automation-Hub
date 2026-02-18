@@ -35,8 +35,6 @@ services:
         condition: service_healthy
     networks:
       - automation-network
-    ports:
-      - "8000:8000"
 
 networks:
   automation-network:
