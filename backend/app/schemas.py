@@ -56,6 +56,10 @@ class UserResponse(BaseModel):
     def name(self) -> str:
         return self.full_name
 
+    @computed_field
+    def status(self) -> str:
+        return "active" if self.is_active else "inactive"
+
 
 class UserWithSector(UserResponse):
     sector: Optional[SectorResponse] = None
@@ -96,6 +100,10 @@ class AutomationResponse(AutomationBase):
     @computed_field
     def name(self) -> str:
         return self.title
+
+    @computed_field
+    def status(self) -> str:
+        return "active" if self.is_active else "inactive"
 
 
 # ============ Auth Schemas ============
