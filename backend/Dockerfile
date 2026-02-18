@@ -7,7 +7,7 @@ COPY frontend/ .
 
 # Define a URL da API como relativa (/) para produção.
 # Isso garante que o frontend faça requisições para o domínio atual, e não localhost.
-ENV VITE_API_URL=/
+ENV VITE_API_URL=/api/v1
 
 RUN npm run build
 
