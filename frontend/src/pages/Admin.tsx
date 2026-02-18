@@ -37,6 +37,11 @@ interface Sector {
   description: string
 }
 
+const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
+  const str = value || ''
+  return end !== undefined ? str.substring(start, end) : str.substring(start)
+}
+
 export default function Admin() {
   const { user, logout } = useAuthStore()
   const queryClient = useQueryClient()
@@ -113,7 +118,7 @@ export default function Admin() {
                   <p className="text-xs text-slate-500">Administrador</p>
                 </div>
                 <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center text-white font-medium">
-                  {user?.full_name?.charAt(0).toUpperCase()}
+                  {safeSubstring(user?.full_name, 0, 1).toUpperCase()}
                 </div>
               </div>
               <button
@@ -211,7 +216,7 @@ export default function Admin() {
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline text-sm"
                           >
-                            {automation.target_url.substring(0, 40)}...
+                            {safeSubstring(automation.target_url, 0, 40)}...
                           </a>
                         </td>
                         <td className="px-6 py-4">

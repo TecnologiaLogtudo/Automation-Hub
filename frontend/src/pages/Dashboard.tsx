@@ -35,6 +35,11 @@ const iconMap: Record<string, React.ReactNode> = {
   robot: <Bot className="w-6 h-6" />,
 }
 
+const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
+  const str = value || ''
+  return end !== undefined ? str.substring(start, end) : str.substring(start)
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -94,7 +99,7 @@ export default function Dashboard() {
                   <p className="text-xs text-slate-500">{user?.email}</p>
                 </div>
                 <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center text-white font-medium">
-                  {user?.full_name?.charAt(0).toUpperCase()}
+                  {safeSubstring(user?.full_name, 0, 1).toUpperCase()}
                 </div>
               </div>
 
