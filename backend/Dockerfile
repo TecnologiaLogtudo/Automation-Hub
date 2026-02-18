@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y \
 # Nota: Caminho ajustado pois o contexto de build agora é a raiz do projeto
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Correção de compatibilidade: passlib não suporta bcrypt >= 4.0. Forçamos a versão 3.2.2.
+RUN pip install "bcrypt==3.2.2"
 
 # Copy application code
 # Nota: Copia apenas a pasta backend para o workdir

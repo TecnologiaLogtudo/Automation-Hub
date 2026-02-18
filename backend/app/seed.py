@@ -11,28 +11,37 @@ def seed_initial_data():
     db = SessionLocal()
     
     try:
-        # Check if data already exists
-        if db.query(Sector).first() is not None:
-            return  # Data already seeded
-        
-        # Create sectors
-        sectors_data = [
-            {"name": "Recursos Humanos", "slug": "rh", "description": "Setor de Recursos Humanos"},
-            {"name": "Tecnologia da Informação", "slug": "ti", "description": "Setor de TI"},
-            {"name": "Financeiro", "slug": "financeiro", "description": "Setor Financeiro"},
-            {"name": "Marketing", "slug": "marketing", "description": "Setor de Marketing"},
-            {"name": "Operações", "slug": "operacoes", "description": "Setor de Operações"},
-        ]
-        
+        # 1. Sectors (Ensure they exist)
         sectors = {}
-        for sector_data in sectors_data:
-            sector = Sector(**sector_data)
-            db.add(sector)
-            db.flush()
-            sectors[sector.slug] = sector
+        existing_sectors = db.query(Sector).all()
         
-        # Create users
-        users_data = [
+        if existing_sectors:
+            print("✓ Sectors already exist")
+            for s in existing_sectors:
+                sectors[s.slug] = s
+        else:
+            print("Seeding sectors...")
+            sectors_data = [
+                {"name": "Recursos Humanos", "slug": "rh", "description": "Setor de Recursos Humanos"},
+                {"name": "Tecnologia da Informação", "slug": "ti", "description": "Setor de TI"},
+                {"name": "Financeiro", "slug": "financeiro", "description": "Setor Financeiro"},
+                {"name": "Marketing", "slug": "marketing", "description": "Setor de Marketing"},
+                {"name": "Operações", "slug": "operacoes", "description": "Setor de Operações"},
+            ]
+            
+            for sector_data in sectors_data:
+                sector = Sector(**sector_data)
+                db.add(sector)
+                db.flush()
+                sectors[sector.slug] = sector
+            db.commit()
+        
+        # 2. Users (Create if missing)
+        if db.query(User).first():
+            print("✓ Users already exist")
+        else:
+            print("Seeding users...")
+            users_data = [
             {
                 "email": "admin@empresa.com",
                 "password": "admin123",
@@ -70,16 +79,21 @@ def seed_initial_data():
             },
         ]
         
-        for user_data in users_data:
-            password = user_data.pop("password")
-            user = User(
-                **user_data,
-                password_hash=get_password_hash(password)
-            )
-            db.add(user)
+            for user_data in users_data:
+                password = user_data.pop("password")
+                user = User(
+                    **user_data,
+                    password_hash=get_password_hash(password)
+                )
+                db.add(user)
+            db.commit()
         
-        # Create automations
-        automations_data = [
+        # 3. Automations (Create if missing)
+        if db.query(Automation).first():
+            print("✓ Automations already exist")
+        else:
+            print("Seeding automations...")
+            automations_data = [
             {
                 "title": "Ponto Eletrônico",
                 "description": "Sistema de registro de ponto eletrônico",
@@ -166,21 +180,21 @@ def seed_initial_data():
             },
         ]
         
-        for automation_data in automations_data:
-            sector_ids = automation_data.pop("sector_ids")
-            automation = Automation(**automation_data)
-            db.add(automation)
-            db.flush()
+            # Create ID map for easier lookup
+            sectors_by_id = {s.id: s for s in sectors.values()}
+
+            for automation_data in automations_data:
+                sector_ids = automation_data.pop("sector_ids")
+                automation = Automation(**automation_data)
+                db.add(automation)
+                db.flush()
+                
+                for sector_id in sector_ids:
+                    if sector_id in sectors_by_id:
+                        automation.sectors.append(sectors_by_id[sector_id])
             
-            # Add sector permissions
-            automation.sectors = [sectors["rh"]]  # Default
-            for sector_id in sector_ids:
-                for slug, sector in sectors.items():
-                    if sector.id == sector_id:
-                        if sector not in automation.sectors:
-                            automation.sectors.append(sector)
-        
-        db.commit()
+            db.commit()
+            
         print("✓ Initial data seeded successfully")
         
     except Exception as e:
