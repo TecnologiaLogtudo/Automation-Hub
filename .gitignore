@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Node.js / Frontend
+node_modules
+npm-debug.log
+dist/
+build/
+
+# Environment & Secrets
+.env
+
+# OS & IDE
+.DS_Store
+.vscode/
+.idea/
