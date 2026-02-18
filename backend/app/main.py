@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import os
+from sqlalchemy import text
 
 from app.config import APP_NAME, DEBUG
 from app.database import engine, Base
@@ -16,6 +17,19 @@ async def lifespan(app: FastAPI):
     """Lifespan events for the application"""
     # Startup: Create tables and seed data
     Base.metadata.create_all(bind=engine)
+    
+    # --- MIGRATION FIX: Atualiza tabelas existentes ---
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("COMMIT"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
+            conn.execute(text("ALTER TABLE automations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
+            conn.commit()
+            print("✓ Schema migration applied successfully")
+    except Exception as e:
+        print(f"Schema migration warning: {e}")
+        
     seed_initial_data()
     yield
     # Shutdown: cleanup if needed
