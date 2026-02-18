@@ -21,7 +21,6 @@ async def lifespan(app: FastAPI):
     # --- MIGRATION FIX: Atualiza tabelas existentes ---
     try:
         with engine.connect() as conn:
-            conn.execute(text("COMMIT"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
             conn.execute(text("ALTER TABLE automations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
