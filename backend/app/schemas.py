@@ -102,10 +102,10 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: int
-    email: str
-    is_admin: bool
-    sector_id: int
+    user_id: Optional[int] = None
+    email: Optional[str] = None
+    is_admin: Optional[bool] = None
+    sector_id: Optional[int] = None
 
 
 # ============ Dashboard Schemas ============
