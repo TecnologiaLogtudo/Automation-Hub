@@ -11,7 +11,7 @@ load_dotenv()
 # Database
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:o6Qiar6UAUB7@72.61.25.133:5432/automacao_db"
+    "postgresql://postgres:o6Qiar6UAUB7@db:5432/automacao_db"
 )
 
 # Auth
