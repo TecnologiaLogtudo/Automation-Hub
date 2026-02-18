@@ -20,18 +20,28 @@ def get_automations(
     Regular users see only automations their sector has access to.
     Admins see all automations.
     """
-    if current_user.is_admin:
-        # Admins see all automations
+    if current_user.is_admin or current_user.role in ["manager", "analyst"]:
+        # Admins, Managers and Analysts see all automations
         automations = db.query(Automation).filter(Automation.is_active == True).all()
     else:
-        # Regular users see only automations for their sector
-        automations = (
+        # 1. Automations from sector
+        sector_automations = (
             db.query(Automation)
             .join(Automation.sectors)
             .filter(Sector.id == current_user.sector_id)
             .filter(Automation.is_active == True)
-            .all()
         )
+        
+        # 2. Automations assigned directly to user (Bonus)
+        user_automations = (
+            db.query(Automation)
+            .join(Automation.users_with_access)
+            .filter(User.id == current_user.id)
+            .filter(Automation.is_active == True)
+        )
+        
+        # Union of both sets
+        automations = sector_automations.union(user_automations).all()
     
     return automations
 
@@ -52,9 +62,11 @@ def get_automation(
         )
     
     # Check if user has access to this automation
-    if not current_user.is_admin:
+    if not current_user.is_admin and current_user.role not in ["manager", "analyst"]:
         sector_ids = [s.id for s in automation.sectors]
-        if current_user.sector_id not in sector_ids:
+        user_ids = [u.id for u in automation.users_with_access]
+        
+        if current_user.sector_id not in sector_ids and current_user.id not in user_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have access to this automation"

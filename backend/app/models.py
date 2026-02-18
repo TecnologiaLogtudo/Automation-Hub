@@ -13,6 +13,13 @@ automation_permissions = Table(
     Column('sector_id', Integer, ForeignKey('sectors.id'), primary_key=True)
 )
 
+# Many-to-many relationship table for users and automations (direct access)
+user_automation_permissions = Table(
+    'user_automation_permissions',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('automation_id', Integer, ForeignKey('automations.id'), primary_key=True)
+)
 
 class Sector(Base):
     __tablename__ = "sectors"
@@ -40,6 +47,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
+    role = Column(String(50), default="user")  # user, manager, analyst, admin
     is_active = Column(Boolean, default=True)
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -47,6 +55,11 @@ class User(Base):
 
     # Relationships
     sector = relationship("Sector", back_populates="users")
+    extra_automations = relationship(
+        "Automation",
+        secondary=user_automation_permissions,
+        back_populates="users_with_access"
+    )
 
 
 class Automation(Base):
@@ -66,4 +79,9 @@ class Automation(Base):
         "Sector",
         secondary=automation_permissions,
         back_populates="automations"
+    )
+    users_with_access = relationship(
+        "User",
+        secondary=user_automation_permissions,
+        back_populates="extra_automations"
     )

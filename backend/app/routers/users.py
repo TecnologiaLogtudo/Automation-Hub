@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Sector
+from app.models import User, Sector, Automation
 from app.schemas import UserCreate, UserResponse, UserUpdate
 from app.auth import get_current_user, get_current_admin, get_password_hash
 
@@ -73,8 +73,14 @@ def create_user(
         full_name=user.full_name,
         password_hash=get_password_hash(user.password),
         is_admin=user.is_admin,
+        role=user.role,
         sector_id=user.sector_id
     )
+
+    if user.automation_ids:
+        automations = db.query(Automation).filter(Automation.id.in_(user.automation_ids)).all()
+        db_user.extra_automations = automations
+
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -100,6 +106,9 @@ def update_user(
     
     # Update fields
     update_data = user_update.model_dump(exclude_unset=True)
+    
+    # Handle automation_ids separately
+    automation_ids = update_data.pop("automation_ids", None)
 
     # Check if email is being updated and if it's already taken
     if "email" in update_data and update_data["email"] != user.email:
@@ -114,6 +123,11 @@ def update_user(
     for field, value in update_data.items():
         setattr(user, field, value)
     
+    # Update extra automations if provided
+    if automation_ids is not None:
+        automations = db.query(Automation).filter(Automation.id.in_(automation_ids)).all()
+        user.extra_automations = automations
+
     db.commit()
     db.refresh(user)
     

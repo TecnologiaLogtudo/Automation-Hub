@@ -7,6 +7,7 @@ interface User {
   email: string
   full_name: string
   is_admin: boolean
+  role: string
   is_active: boolean
   sector_id: number
   created_at: string

@@ -31,16 +31,26 @@ class SectorResponse(SectorBase):
         return v or ""
 
 
+# ============ Automation Schemas (Moved Up) ============
+class AutomationBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    target_url: str
+    icon: str = "robot"
+    is_active: bool = True
+
 # ============ User Schemas ============
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     is_admin: bool = False
+    role: str = "user"
     sector_id: int
 
 
 class UserCreate(UserBase):
     password: str
+    automation_ids: List[int] = []
 
 
 class UserUpdate(BaseModel):
@@ -48,8 +58,10 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     is_admin: Optional[bool] = None
     sector_id: Optional[int] = None
+    role: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    automation_ids: Optional[List[int]] = None
 
 
 class UserResponse(BaseModel):
@@ -57,9 +69,11 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     is_admin: bool
+    role: str
     is_active: bool
     sector_id: int
     created_at: datetime
+    extra_automations: List[AutomationBase] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,15 +90,6 @@ class UserWithSector(UserResponse):
     sector: Optional[SectorResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# ============ Automation Schemas ============
-class AutomationBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    target_url: str
-    icon: str = "robot"
-    is_active: bool = True
 
 
 class AutomationCreate(AutomationBase):

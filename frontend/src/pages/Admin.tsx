@@ -25,9 +25,11 @@ interface User {
   email: string
   full_name: string
   is_admin: boolean
+  role: string
   is_active: boolean
   sector_id: number
   sector?: { name: string }
+  extra_automations?: { id: number; title: string }[]
 }
 
 interface Sector {
@@ -147,7 +149,7 @@ export default function Admin() {
     if (activeTab === 'automations') {
       setFormData({ is_active: true, sector_ids: [] })
     } else if (activeTab === 'users') {
-      setFormData({ is_active: true, is_admin: false })
+      setFormData({ is_active: true, is_admin: false, role: 'user', automation_ids: [] })
     }
     setIsModalOpen(true)
   }
@@ -160,7 +162,10 @@ export default function Admin() {
         sector_ids: item.sectors?.map((s: any) => s.id) || []
       })
     } else {
-      setFormData({ ...item })
+      setFormData({ 
+        ...item,
+        automation_ids: item.extra_automations?.map((a: any) => a.id) || []
+      })
     }
     setIsModalOpen(true)
   }
@@ -386,6 +391,7 @@ export default function Admin() {
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">E-mail</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Tipo</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Função</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Status</th>
                     <th className="text-right px-6 py-4 text-sm font-medium text-slate-600">Ações</th>
                   </tr>
@@ -393,13 +399,13 @@ export default function Admin() {
                 <tbody className="divide-y divide-slate-200">
                   {loadingUsers ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                         Carregando...
                       </td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                         Nenhum usuário encontrado
                       </td>
                     </tr>
@@ -425,6 +431,17 @@ export default function Admin() {
                               Usuário
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 text-xs rounded-md capitalize ${
+                            userItem.role === 'manager' ? 'bg-orange-100 text-orange-700' :
+                            userItem.role === 'analyst' ? 'bg-cyan-100 text-cyan-700' :
+                            userItem.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {userItem.role === 'manager' ? 'Gerente' : 
+                             userItem.role === 'analyst' ? 'Analista' : userItem.role}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           {userItem.is_active ? (
@@ -657,6 +674,35 @@ export default function Admin() {
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Função</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.role || 'user'}
+                      onChange={e => setFormData({...formData, role: e.target.value})}
+                    >
+                      <option value="user">Usuário Padrão</option>
+                      <option value="manager">Gerente (Vê tudo)</option>
+                      <option value="analyst">Analista de Dados (Vê tudo)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Automações Extras (Bônus)</label>
+                    <select
+                      multiple
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                      value={formData.automation_ids?.map(String) || []}
+                      onChange={e => {
+                        const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                        setFormData({...formData, automation_ids: selected})
+                      }}
+                    >
+                      {(automations || []).map(a => (
+                        <option key={a.id} value={a.id}>{a.title}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Segure Ctrl para selecionar múltiplas. Estas automações serão visíveis além das do setor.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
