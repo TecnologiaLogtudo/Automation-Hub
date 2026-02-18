@@ -22,8 +22,8 @@ services:
   # Backend API
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: automation-hub-backend
     environment:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
@@ -35,52 +35,8 @@ services:
         condition: service_healthy
     networks:
       - automation-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes=/api"
-      - "traefik.http.routers.backend.middlewares=backend-stripprefix"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
-      - "traefik.docker.network=automation-network"
-
-  # Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: automation-hub-frontend
-    depends_on:
-      - backend
-    networks:
-      - automation-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-automation.local}`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
-      - "traefik.docker.network=automation-network"
-
-  # Traefik Reverse Proxy
-  traefik:
-    image: traefik:v3.0
-    container_name: automation-hub-traefik
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.network=automation-network"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
     ports:
-      - "80:80"
-      - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - automation-network
-    depends_on:
-      - frontend
-      - backend
+      - "8000:8000"
 
 networks:
   automation-network:

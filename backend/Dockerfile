@@ -1,3 +1,12 @@
+# Estágio 1: Build do Frontend
+FROM node:20-alpine as frontend-build
+WORKDIR /app-frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ .
+RUN npm run build
+
+# Estágio 2: Backend
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -10,11 +19,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
-COPY requirements.txt .
+# Nota: Caminho ajustado pois o contexto de build agora é a raiz do projeto
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+# Nota: Copia apenas a pasta backend para o workdir
+COPY backend/ .
+
+# Copia os arquivos estáticos gerados no estágio 1 para dentro do backend
+COPY --from=frontend-build /app-frontend/dist /app/static
 
 # Expose port
 EXPOSE 8000
