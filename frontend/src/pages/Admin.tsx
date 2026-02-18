@@ -203,7 +203,7 @@ export default function Admin() {
                       </td>
                     </tr>
                   ) : (
-                    automations.map((automation) => (
+                    (automations || []).map((automation) => (
                       <tr key={automation.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
                           <div className="font-medium text-slate-900">{automation.title}</div>
@@ -221,7 +221,7 @@ export default function Admin() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">
-                            {automation.sectors.map((sector) => (
+                            {(automation.sectors || []).map((sector) => (
                               <span
                                 key={sector.id}
                                 className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md"
@@ -303,7 +303,7 @@ export default function Admin() {
                       </td>
                     </tr>
                   ) : (
-                    users.map((userItem) => (
+                    (users || []).map((userItem) => (
                       <tr key={userItem.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 font-medium text-slate-900">
                           {userItem.full_name}
@@ -381,7 +381,7 @@ export default function Admin() {
                   Nenhum setor encontrado
                 </div>
               ) : (
-                sectors.map((sector) => (
+                (sectors || []).map((sector) => (
                   <div
                     key={sector.id}
                     className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-md transition-shadow"
