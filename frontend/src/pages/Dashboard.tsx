@@ -52,6 +52,7 @@ export default function Dashboard() {
   const safe = (v?: string) => (v || '').toLowerCase()
 
   const filteredAutomations = (automations || []).filter(automation => {
+    if (!automation.is_active) return false
     const search = safe(searchQuery)
     return safe(automation.title).includes(search) || safe(automation.description).includes(search)
   })

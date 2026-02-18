@@ -20,8 +20,11 @@ def get_automations(
     Regular users see only automations their sector has access to.
     Admins see all automations.
     """
-    if current_user.is_admin or current_user.role in ["manager", "analyst"]:
-        # Admins, Managers and Analysts see all automations
+    if current_user.is_admin:
+        # Admins see all automations (active and inactive) for management
+        automations = db.query(Automation).all()
+    elif current_user.role in ["manager", "analyst"]:
+        # Managers and Analysts see all ACTIVE automations
         automations = db.query(Automation).filter(Automation.is_active == True).all()
     else:
         # 1. Automations from sector

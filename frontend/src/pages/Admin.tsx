@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { automationsApi, usersApi, sectorsApi } from '../services/api'
 import { 
   Bot, Users, Building2, Plus, Trash2, Edit, 
-  AlertCircle, CheckCircle, LogOut, X
+  AlertCircle, CheckCircle, LogOut, X, Power
 } from 'lucide-react'
 
 type Tab = 'automations' | 'users' | 'sectors'
@@ -392,6 +392,7 @@ export default function Admin() {
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Tipo</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Função</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Acessos Extras</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Status</th>
                     <th className="text-right px-6 py-4 text-sm font-medium text-slate-600">Ações</th>
                   </tr>
@@ -399,13 +400,13 @@ export default function Admin() {
                 <tbody className="divide-y divide-slate-200">
                   {loadingUsers ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                      <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                         Carregando...
                       </td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                      <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                         Nenhum usuário encontrado
                       </td>
                     </tr>
@@ -444,6 +445,19 @@ export default function Admin() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {(userItem.extra_automations || []).length > 0 ? (
+                              (userItem.extra_automations || []).map((a) => (
+                                <span key={a.id} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-md border border-yellow-200">
+                                  {a.title}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           {userItem.is_active ? (
                             <span className="flex items-center gap-1 text-green-600 text-sm">
                               <CheckCircle className="w-4 h-4" />
@@ -461,12 +475,25 @@ export default function Admin() {
                             <button 
                               onClick={() => handleOpenEdit(userItem)}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Editar"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={() => toggleUserStatus.mutate({ id: userItem.id, is_active: !userItem.is_active })}
+                              className={`p-2 rounded-lg transition-colors ${
+                                userItem.is_active 
+                                  ? 'text-slate-400 hover:text-orange-600 hover:bg-orange-50' 
+                                  : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
+                              }`}
+                              title={userItem.is_active ? "Inativar" : "Ativar"}
+                            >
+                              <Power className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => deleteUser.mutate(userItem.id)}
                               className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Excluir"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -689,20 +716,53 @@ export default function Admin() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Automações Extras (Bônus)</label>
+                    
+                    {/* Lista de automações selecionadas com opção de remover */}
+                    <div className="flex flex-wrap gap-2 mb-2 min-h-[2rem]">
+                      {(formData.automation_ids || []).map((id: number) => {
+                        const automation = automations.find(a => a.id === id)
+                        if (!automation) return null
+                        return (
+                          <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100">
+                            {automation.title}
+                            <button
+                              type="button"
+                              onClick={() => setFormData({
+                                ...formData,
+                                automation_ids: formData.automation_ids.filter((i: number) => i !== id)
+                              })}
+                              className="hover:text-red-600 ml-1"
+                              title="Revogar acesso"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        )
+                      })}
+                    </div>
+
                     <select
-                      multiple
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-                      value={formData.automation_ids?.map(String) || []}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value=""
                       onChange={e => {
-                        const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                        setFormData({...formData, automation_ids: selected})
+                        const id = parseInt(e.target.value)
+                        if (id && !formData.automation_ids?.includes(id)) {
+                          setFormData({
+                            ...formData,
+                            automation_ids: [...(formData.automation_ids || []), id]
+                          })
+                        }
                       }}
                     >
-                      {(automations || []).map(a => (
-                        <option key={a.id} value={a.id}>{a.title}</option>
-                      ))}
+                      <option value="">Adicionar automação...</option>
+                      {(automations || [])
+                        .filter(a => !formData.automation_ids?.includes(a.id))
+                        .map(a => (
+                          <option key={a.id} value={a.id}>{a.title}</option>
+                        ))
+                      }
                     </select>
-                    <p className="text-xs text-slate-500 mt-1">Segure Ctrl para selecionar múltiplas. Estas automações serão visíveis além das do setor.</p>
+                    <p className="text-xs text-slate-500 mt-1">Selecione na lista para conceder acesso. Clique no X para revogar.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
