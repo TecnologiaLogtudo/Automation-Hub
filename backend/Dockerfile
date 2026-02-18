@@ -4,6 +4,11 @@ WORKDIR /app-frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ .
+
+# Define a URL da API como relativa (/) para produção.
+# Isso garante que o frontend faça requisições para o domínio atual, e não localhost.
+ENV VITE_API_URL=/
+
 RUN npm run build
 
 # Estágio 2: Backend
@@ -22,8 +27,6 @@ RUN apt-get update && apt-get install -y \
 # Nota: Caminho ajustado pois o contexto de build agora é a raiz do projeto
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# Correção de compatibilidade: passlib não suporta bcrypt >= 4.0. Forçamos a versão 3.2.2.
-RUN pip install "bcrypt==3.2.2"
 
 # Copy application code
 # Nota: Copia apenas a pasta backend para o workdir
