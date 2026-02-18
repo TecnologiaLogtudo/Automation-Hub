@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict, computed_field
+from pydantic import BaseModel, EmailStr, ConfigDict, computed_field, field_validator
 
 
 # ============ Sector Schemas ============
@@ -19,6 +19,11 @@ class SectorResponse(SectorBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('description', mode='before')
+    @classmethod
+    def set_description_default(cls, v):
+        return v or ""
 
 
 # ============ User Schemas ============
@@ -96,6 +101,11 @@ class AutomationResponse(AutomationBase):
     sectors: List[SectorResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('description', mode='before')
+    @classmethod
+    def set_description_default(cls, v):
+        return v or ""
 
     @computed_field
     def name(self) -> str:

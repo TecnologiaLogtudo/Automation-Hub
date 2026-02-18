@@ -43,10 +43,12 @@ export default function Dashboard() {
     queryFn: () => automationsApi.getAll().then(res => res.data),
   })
 
-  const filteredAutomations = automations.filter(automation =>
-    automation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    automation.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const safe = (v?: string) => (v || '').toLowerCase()
+
+  const filteredAutomations = (automations || []).filter(automation => {
+    const search = safe(searchQuery)
+    return safe(automation.title).includes(search) || safe(automation.description).includes(search)
+  })
 
   const handleLogout = () => {
     logout()
