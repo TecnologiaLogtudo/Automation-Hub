@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { automationsApi } from '../services/api'
@@ -78,13 +79,13 @@ export default function Dashboard() {
             {/* User Info */}
             <div className="flex items-center gap-4">
               {user?.is_admin && (
-                <a
-                  href="/admin"
+                <Link
+                  to="/admin"
                   className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Settings className="w-4 h-4" />
                   <span className="hidden sm:inline">Admin</span>
-                </a>
+                </Link>
               )}
               
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">

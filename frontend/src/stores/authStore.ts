@@ -78,10 +78,15 @@ export const useAuthStore = create<AuthState>()(
 )
 
 // Initialize user on app load if token exists
-const initializeAuth = () => {
+const initializeAuth = async () => {
   const token = localStorage.getItem('token')
   if (token) {
-    useAuthStore.getState().fetchUser()
+    useAuthStore.setState({ isLoading: true })
+    try {
+      await useAuthStore.getState().fetchUser()
+    } finally {
+      useAuthStore.setState({ isLoading: false })
+    }
   }
 }
 

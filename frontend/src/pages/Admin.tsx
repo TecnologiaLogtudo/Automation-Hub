@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { automationsApi, usersApi, sectorsApi } from '../services/api'
@@ -100,12 +101,12 @@ export default function Admin() {
             </div>
 
             <div className="flex items-center gap-4">
-              <a
-                href="/"
+              <Link
+                to="/"
                 className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 Voltar ao Dashboard
-              </a>
+              </Link>
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">{user?.full_name}</p>
