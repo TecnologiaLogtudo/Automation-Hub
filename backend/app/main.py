@@ -69,7 +69,7 @@ app.include_router(sectors.router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health_check():
+async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
