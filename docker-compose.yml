@@ -24,10 +24,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: automation-hub-backend
+    container_name: automation-hub
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
-      SECRET_KEY: ${SECRET_KEY:-gere_uma_chave_aleatoria_e_coloque_aqui}
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/agendamento_db
+      SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
     depends_on:
@@ -35,6 +35,15 @@ services:
         condition: service_healthy
     networks:
       - automation-network
+    expose:
+      - "8000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.automation-hub.rule=Host(`automacao.logtudo.com.br`)
+      - traefik.http.routers.automation-hub.entrypoints=http,https
+      - traefik.http.services.automation-hub.loadbalancer.server.port=8000
+      - coolify.managed=true
+      - coolify.proxy=true
 
 networks:
   automation-network:
