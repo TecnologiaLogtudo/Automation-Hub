@@ -29,9 +29,3 @@ Sistema de gerenciamento de acesso às automações da empresa com controle de p
 2. Execute `docker compose up -d`
 3. Acesse o frontend em `http://localhost`
 4. Acesse a API em `http://localhost/api`
-
-## Primeiros Usuários
-
-- Admin: admin@empresa.com / admin123
-- Usuário RH: rh@empresa.com / rh123
-- Usuário TI: ti@empresa.com / ti123

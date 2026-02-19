@@ -42,42 +42,14 @@ def seed_initial_data():
         else:
             print("Seeding users...")
             users_data = [
-            {
-                "email": "admin@empresa.com",
-                "password": "admin123",
-                "full_name": "Administrador",
-                "is_admin": True,
-                "sector_id": sectors["ti"].id
-            },
-            {
-                "email": "rh@empresa.com",
-                "password": "rh123",
-                "full_name": "Colaborador RH",
-                "is_admin": False,
-                "sector_id": sectors["rh"].id
-            },
-            {
-                "email": "ti@empresa.com",
-                "password": "ti123",
-                "full_name": "Desenvolvedor",
-                "is_admin": False,
-                "sector_id": sectors["ti"].id
-            },
-            {
-                "email": "financeiro@empresa.com",
-                "password": "fin123",
-                "full_name": "Analista Financeiro",
-                "is_admin": False,
-                "sector_id": sectors["financeiro"].id
-            },
-            {
-                "email": "marketing@empresa.com",
-                "password": "mkt123",
-                "full_name": "Gerente de Marketing",
-                "is_admin": False,
-                "sector_id": sectors["marketing"].id
-            },
-        ]
+                {
+                    "email": "admin@logtudo.com.br",
+                    "password": "admin", # Altere a senha logo após o primeiro login!
+                    "full_name": "Administrador",
+                    "is_admin": True,
+                    "sector_id": sectors["ti"].id
+                }
+            ]
         
             for user_data in users_data:
                 password = user_data.pop("password")
@@ -93,92 +65,7 @@ def seed_initial_data():
             print("✓ Automations already exist")
         else:
             print("Seeding automations...")
-            automations_data = [
-            {
-                "title": "Ponto Eletrônico",
-                "description": "Sistema de registro de ponto eletrônico",
-                "target_url": "https://ponto.empresa.com",
-                "icon": "clock",
-                "sector_ids": [sectors["rh"].id, sectors["ti"].id]
-            },
-            {
-                "title": "Gestão de Férias",
-                "description": "Sistema de gerenciamento de férias e folgas",
-                "target_url": "https://ferias.empresa.com",
-                "icon": "calendar",
-                "sector_ids": [sectors["rh"].id]
-            },
-            {
-                "title": "Folha de Pagamento",
-                "description": "Sistema de folha de pagamento",
-                "target_url": "https://folha.empresa.com",
-                "icon": "dollar",
-                "sector_ids": [sectors["financeiro"].id, sectors["rh"].id]
-            },
-            {
-                "title": "Gestão de Projetos",
-                "description": "Sistema de gerenciamento de projetos ágeis",
-                "target_url": "https://projetos.empresa.com",
-                "icon": "folder",
-                "sector_ids": [sectors["ti"].id, sectors["marketing"].id, sectors["operacoes"].id]
-            },
-            {
-                "title": "Help Desk TI",
-                "description": "Sistema de tickets e suporte técnico",
-                "target_url": "https://suporte.empresa.com",
-                "icon": "headset",
-                "sector_ids": [sectors["ti"].id]
-            },
-            {
-                "title": "Contas a Pagar",
-                "description": "Gestão de contas a pagar",
-                "target_url": "https://contaspagar.empresa.com",
-                "icon": "credit-card",
-                "sector_ids": [sectors["financeiro"].id]
-            },
-            {
-                "title": "Contas a Receber",
-                "description": "Gestão de contas a receber",
-                "target_url": "https://contasreceber.empresa.com",
-                "icon": "trending-up",
-                "sector_ids": [sectors["financeiro"].id]
-            },
-            {
-                "title": "CRM Marketing",
-                "description": "CRM para gestão de campanhas de marketing",
-                "target_url": "https://crm.empresa.com",
-                "icon": "users",
-                "sector_ids": [sectors["marketing"].id]
-            },
-            {
-                "title": "Automação de E-mails",
-                "description": "Plataforma de automação de e-mail marketing",
-                "target_url": "https://email.empresa.com",
-                "icon": "mail",
-                "sector_ids": [sectors["marketing"].id, sectors["rh"].id]
-            },
-            {
-                "title": "Gestão de Estoque",
-                "description": "Controle de estoque e inventário",
-                "target_url": "https://estoque.empresa.com",
-                "icon": "package",
-                "sector_ids": [sectors["operacoes"].id]
-            },
-            {
-                "title": "Controle de Acesso",
-                "description": "Sistema de controle de acesso e segurança",
-                "target_url": "https://acesso.empresa.com",
-                "icon": "lock",
-                "sector_ids": [sectors["ti"].id, sectors["rh"].id, sectors["operacoes"].id]
-            },
-            {
-                "title": "Dashboard BI",
-                "description": "Dashboards de business intelligence",
-                "target_url": "https://bi.empresa.com",
-                "icon": "bar-chart",
-                "sector_ids": [sectors["financeiro"].id, sectors["marketing"].id, sectors["operacoes"].id, sectors["ti"].id]
-            },
-        ]
+            automations_data = []
         
             # Create ID map for easier lookup
             sectors_by_id = {s.id: s for s in sectors.values()}
