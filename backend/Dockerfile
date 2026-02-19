@@ -14,7 +14,7 @@ COPY frontend/ .
 # Isso garante que o frontend faça requisições para o domínio atual, e não localhost.
 ENV VITE_API_URL=/api/v1
 
-RUN npm run build --verbose
+RUN npm run build
 
 # Estágio 2: Backend
 FROM python:3.11-slim
