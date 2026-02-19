@@ -109,45 +109,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
-          {/* Demo Accounts */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-xs text-slate-500 text-center mb-3">Contas de demonstração</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => { setEmail('admin@empresa.com'); setPassword('admin123') }}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors text-left"
-              >
-                <span className="block font-medium">Admin</span>
-                <span className="text-slate-500">admin@empresa.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('rh@empresa.com'); setPassword('rh123') }}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors text-left"
-              >
-                <span className="block font-medium">RH</span>
-                <span className="text-slate-500">rh@empresa.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('ti@empresa.com'); setPassword('ti123') }}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors text-left"
-              >
-                <span className="block font-medium">TI</span>
-                <span className="text-slate-500">ti@empresa.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('financeiro@empresa.com'); setPassword('fin123') }}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors text-left"
-              >
-                <span className="block font-medium">Financeiro</span>
-                <span className="text-slate-500">financeiro@empresa.com</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
