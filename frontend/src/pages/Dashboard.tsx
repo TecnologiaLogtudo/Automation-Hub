@@ -5,10 +5,9 @@ import { useAuthStore } from '../stores/authStore'
 import { automationsApi } from '../services/api'
 import { 
   Bot, Search, LogOut, Settings, ExternalLink, 
-  Clock, Calendar, Banknote, Folder, Headset, CreditCard,
-  TrendingUp, Users, Mail, Package, Lock, BarChart,
   LayoutGrid, ChevronRight
 } from 'lucide-react'
+import * as LucideIcons from 'lucide-react'
 
 interface Automation {
   id: number
@@ -19,20 +18,23 @@ interface Automation {
   is_active: boolean
 }
 
-const iconMap: Record<string, React.ReactNode> = {
-  clock: <Clock className="w-6 h-6" />,
-  calendar: <Calendar className="w-6 h-6" />,
-  dollar: <Banknote className="w-6 h-6" />,
-  folder: <Folder className="w-6 h-6" />,
-  headset: <Headset className="w-6 h-6" />,
-  'credit-card': <CreditCard className="w-6 h-6" />,
-  'trending-up': <TrendingUp className="w-6 h-6" />,
-  users: <Users className="w-6 h-6" />,
-  mail: <Mail className="w-6 h-6" />,
-  package: <Package className="w-6 h-6" />,
-  lock: <Lock className="w-6 h-6" />,
-  'bar-chart': <BarChart className="w-6 h-6" />,
-  robot: <Bot className="w-6 h-6" />,
+const getIconComponent = (iconName: string) => {
+  const cleanName = iconName?.trim() || ''
+  if (!cleanName) return LucideIcons.Bot
+
+  // Tenta encontrar o ícone diretamente ou convertendo kebab-case para PascalCase
+  // Ex: "arrow-right" -> "ArrowRight", "user" -> "User"
+  const pascalCaseName = cleanName.replace(/(^\w|-\w)/g, (clear) => clear.replace(/-/, "").toUpperCase())
+  
+  // Mapeamento manual para casos específicos legados
+  const manualMap: Record<string, any> = {
+    'dollar': LucideIcons.Banknote,
+    'robot': LucideIcons.Bot,
+  }
+
+  const Icon = (LucideIcons as any)[cleanName] || (LucideIcons as any)[pascalCaseName] || manualMap[cleanName]
+  
+  return Icon || LucideIcons.Bot
 }
 
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
@@ -167,36 +169,39 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAutomations.map((automation, index) => (
-              <div
-                key={automation.id}
-                className="automation-card bg-white rounded-2xl border border-slate-200 p-6 cursor-pointer animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => openAutomation(automation.target_url)}
-              >
-                {/* Icon */}
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center text-blue-600 mb-4">
-                  {iconMap[automation.icon] || iconMap.robot}
-                </div>
+            {filteredAutomations.map((automation, index) => {
+              const Icon = getIconComponent(automation.icon)
+              return (
+                <div
+                  key={automation.id}
+                  className="automation-card bg-white rounded-2xl border border-slate-200 p-6 cursor-pointer animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => openAutomation(automation.target_url)}
+                >
+                  {/* Icon */}
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center text-blue-600 mb-4">
+                    <Icon className="w-6 h-6" />
+                  </div>
 
-                {/* Content */}
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                  {automation.title}
-                </h3>
-                <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                  {automation.description}
-                </p>
+                  {/* Content */}
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    {automation.title}
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                    {automation.description}
+                  </p>
 
-                {/* Action */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                  <span className="text-sm text-slate-500 flex items-center gap-1">
-                    Acessar
-                    <ChevronRight className="w-4 h-4" />
-                  </span>
-                  <ExternalLink className="w-5 h-5 text-blue-500" />
+                  {/* Action */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <span className="text-sm text-slate-500 flex items-center gap-1">
+                      Acessar
+                      <ChevronRight className="w-4 h-4" />
+                    </span>
+                    <ExternalLink className="w-5 h-5 text-blue-500" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>
