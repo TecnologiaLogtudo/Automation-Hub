@@ -26,13 +26,15 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     libpq-dev \
+    libssl-dev \
+    libffi-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
 # Nota: Caminho ajustado pois o contexto de build agora é a raiz do projeto
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 # Nota: Copia apenas a pasta backend para o workdir

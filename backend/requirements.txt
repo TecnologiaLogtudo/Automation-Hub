@@ -8,7 +8,3 @@ python-jose[cryptography]
 passlib[argon2]
 psycopg2-binary
 python-multipart
-
-
-docker exec -it db-awo8sw8444ccoggwg08kkw48-140808460566 psql -U postgres
-docker restart backend-awo8sw8444ccoggwg08kkw48-140808466184
