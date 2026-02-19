@@ -450,7 +450,7 @@ export default function Admin() {
                         <td className="px-6 py-4 text-slate-600">{userItem.email}</td>
                         <td className="px-6 py-4">
                           <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
-                            {userItem.sector?.name || 'N/A'}
+                            {sectors.find(s => s.id === userItem.sector_id)?.name || userItem.sector?.name || 'N/A'}
                           </span>
                         </td>
                         <td className="px-6 py-4">
