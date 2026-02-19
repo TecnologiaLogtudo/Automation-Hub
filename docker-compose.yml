@@ -26,7 +26,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: automation-hub
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/automacao_db
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60

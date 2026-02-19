@@ -2,6 +2,11 @@
 FROM node:20-alpine as frontend-build
 WORKDIR /app-frontend
 COPY frontend/package*.json ./
+
+# Garante que as dependências de desenvolvimento (Vite, TypeScript) sejam instaladas
+# mesmo se o ambiente global de deploy estiver definido como production
+ENV NODE_ENV=development
+
 RUN npm install
 COPY frontend/ .
 
