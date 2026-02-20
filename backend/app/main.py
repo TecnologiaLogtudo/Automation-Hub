@@ -20,12 +20,25 @@ async def lifespan(app: FastAPI):
     
     # --- MIGRATION FIX: Atualiza tabelas existentes ---
     try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        
         with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
-            conn.execute(text("ALTER TABLE automations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()"))
-            conn.commit()
-            print("✓ Schema migration applied successfully")
+            # Helper to add column if it doesn't exist
+            def add_column_if_missing(table_name, column_name, column_type):
+                columns = [c['name'] for c in inspector.get_columns(table_name)]
+                if column_name not in columns:
+                    print(f"Adding column {column_name} to {table_name}...")
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+                    conn.commit()
+
+            add_column_if_missing("users", "role", "VARCHAR(50) DEFAULT 'user'")
+            add_column_if_missing("users", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            add_column_if_missing("users", "preferences", "JSONB DEFAULT '{}'")
+            add_column_if_missing("automations", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            add_column_if_missing("automations", "config", "JSONB DEFAULT '{}'")
+            
+            print("✓ Schema migrations checked/applied")
     except Exception as e:
         print(f"Schema migration warning: {e}")
         

@@ -51,6 +51,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     automation_ids: List[int] = []
+    preferences: Optional[dict] = None
 
 
 class UserUpdate(BaseModel):
@@ -62,28 +63,24 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     password: Optional[str] = None
     automation_ids: Optional[List[int]] = None
+    preferences: Optional[dict] = None
 
 
 class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str
+    name: str # Populated from model hybrid_property
+    status: str # Populated from model hybrid_property
     is_admin: bool
     role: str
     is_active: bool
     sector_id: int
     created_at: datetime
+    preferences: Optional[dict] = None # Populated from model property
     extra_automations: List[AutomationBase] = []
 
     model_config = ConfigDict(from_attributes=True)
-
-    @computed_field
-    def name(self) -> str:
-        return self.full_name
-
-    @computed_field
-    def status(self) -> str:
-        return "active" if self.is_active else "inactive"
 
 
 class UserWithSector(UserResponse):
@@ -94,6 +91,7 @@ class UserWithSector(UserResponse):
 
 class AutomationCreate(AutomationBase):
     sector_ids: List[int] = []
+    config: Optional[dict] = None
 
 
 class AutomationUpdate(BaseModel):
@@ -103,12 +101,16 @@ class AutomationUpdate(BaseModel):
     icon: Optional[str] = None
     is_active: Optional[bool] = None
     sector_ids: Optional[List[int]] = None
+    config: Optional[dict] = None
 
 
 class AutomationResponse(AutomationBase):
     id: int
+    name: str # Populated from model hybrid_property
+    status: str # Populated from model hybrid_property
     created_at: datetime
     updated_at: datetime
+    config: Optional[dict] = None # Populated from model property
     sectors: List[SectorResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -117,14 +119,6 @@ class AutomationResponse(AutomationBase):
     @classmethod
     def set_description_default(cls, v):
         return v or ""
-
-    @computed_field
-    def name(self) -> str:
-        return self.title
-
-    @computed_field
-    def status(self) -> str:
-        return "active" if self.is_active else "inactive"
 
 
 # ============ Auth Schemas ============

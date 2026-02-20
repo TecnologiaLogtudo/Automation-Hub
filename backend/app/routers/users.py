@@ -74,7 +74,8 @@ def create_user(
         password_hash=get_password_hash(user.password),
         is_admin=user.is_admin,
         role=user.role,
-        sector_id=user.sector_id
+        sector_id=user.sector_id,
+        preferences=user.preferences
     )
 
     if user.automation_ids:

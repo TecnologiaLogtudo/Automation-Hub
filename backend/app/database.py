@@ -6,7 +6,20 @@ from app.config import DATABASE_URL
 
 engine = create_engine(
     DATABASE_URL,
-    poolclass=NullPool,
+    # pool_pre_ping: Testa a conexão antes de usá-la. 
+    # Resolve problemas de "Gateway Timeout" por conexões mortas.
+    pool_pre_ping=True,
+    
+    # pool_size: Mantém 5 conexões abertas prontas para uso.
+    pool_size=5,
+    
+    # max_overflow: Permite abrir até 10 conexões extras em picos de tráfego.
+    max_overflow=10,
+    
+    # pool_recycle: Fecha e recria conexões a cada 1 hora para evitar que 
+    # o firewall ou o banco matem a conexão por inatividade.
+    pool_recycle=3600,
+    
     echo=False
 )
 

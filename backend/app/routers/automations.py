@@ -91,7 +91,8 @@ def create_automation(
         description=automation.description,
         target_url=automation.target_url,
         icon=automation.icon,
-        is_active=automation.is_active
+        is_active=automation.is_active,
+        config=automation.config
     )
     db.add(db_automation)
     db.flush()  # Get the ID before adding sectors

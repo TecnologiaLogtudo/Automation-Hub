@@ -1,6 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 
@@ -52,6 +54,9 @@ class User(Base):
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Suporte nativo ao Postgres JSONB para alto desempenho
+    preferences = Column(JSONB, nullable=True, default={})
 
     # Relationships
     sector = relationship("Sector", back_populates="users")
@@ -60,6 +65,14 @@ class User(Base):
         secondary=user_automation_permissions,
         back_populates="users_with_access"
     )
+
+    @hybrid_property
+    def name(self) -> str:
+        return self.full_name
+
+    @hybrid_property
+    def status(self) -> str:
+        return "active" if self.is_active else "inactive"
 
 
 class Automation(Base):
@@ -73,6 +86,9 @@ class Automation(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Suporte nativo ao Postgres JSONB para alto desempenho
+    config = Column(JSONB, nullable=True, default={})
 
     # Relationships
     sectors = relationship(
@@ -85,3 +101,11 @@ class Automation(Base):
         secondary=user_automation_permissions,
         back_populates="extra_automations"
     )
+
+    @hybrid_property
+    def name(self) -> str:
+        return self.title
+
+    @hybrid_property
+    def status(self) -> str:
+        return "active" if self.is_active else "inactive"
