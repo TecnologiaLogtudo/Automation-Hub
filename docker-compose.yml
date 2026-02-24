@@ -6,9 +6,11 @@ services:
     image: postgres:16-alpine
     container_name: automation-hub-db
     environment:
-      POSTGRES_USER: postgres
+      POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
-      POSTGRES_DB: automacao_db
+      POSTGRES_DB: ${DB_NAME:-automacao_db}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -44,6 +46,11 @@ services:
       - traefik.http.services.automation-hub.loadbalancer.server.port=8000
       - coolify.managed=true
       - coolify.proxy=true
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   automation-network:

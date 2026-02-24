@@ -34,9 +34,9 @@ async def lifespan(app: FastAPI):
 
             add_column_if_missing("users", "role", "VARCHAR(50) DEFAULT 'user'")
             add_column_if_missing("users", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-            add_column_if_missing("users", "preferences", "JSONB DEFAULT '{}'")
+            add_column_if_missing("users", "preferences", "TEXT")
             add_column_if_missing("automations", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-            add_column_if_missing("automations", "config", "JSONB DEFAULT '{}'")
+            add_column_if_missing("automations", "config", "TEXT")
             
             print("✓ Schema migrations checked/applied")
     except Exception as e:
@@ -98,7 +98,7 @@ if os.path.exists(assets_dir):
 
 # 2. Rota Catch-All para SPA (Single Page Application)
 # Qualquer rota não encontrada na API será direcionada para o index.html
-@app.get("/{full_path:path}")
+@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
 async def serve_spa(full_path: str):
     # Se a rota começar com "api", retorna 404 (não tenta servir HTML)
     if full_path.startswith("api"):

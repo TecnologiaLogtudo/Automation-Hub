@@ -18,7 +18,14 @@ engine = create_engine(
     
     # pool_recycle: Fecha e recria conexões a cada 1 hora para evitar que 
     # o firewall ou o banco matem a conexão por inatividade.
-    pool_recycle=3600,
+    pool_recycle=300,
+    
+    connect_args={
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    },
     
     echo=False
 )
