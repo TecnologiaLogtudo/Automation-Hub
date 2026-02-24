@@ -9,8 +9,6 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
       POSTGRES_DB: ${DB_NAME:-automacao_db}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
