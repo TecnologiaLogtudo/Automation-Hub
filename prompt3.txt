@@ -1,0 +1,22 @@
+Contexto:
+Tenho múltiplas automações independentes em FastAPI rodando como containers separados.
+Cada uma atualmente possui autenticação própria.
+
+Objetivo:
+Remover autenticação local e validar apenas JWT emitido pelo Keycloak.
+
+Requisitos:
+Middleware global que valide JWT em todas as requisições
+Obter chave pública do Keycloak automaticamente
+Validar assinatura, expiração e audience
+Extrair user_id e roles
+Aplicar controle RBAC por endpoint
+Retornar 401 se token inválido
+Retornar 403 se role insuficiente
+
+Entregáveis:
+Middleware FastAPI completo
+Função de validação JWT com python-jose
+Estrutura recomendada
+Exemplo de aplicação de RBAC em endpoint
+Boas práticas para performance (cache da chave pública)

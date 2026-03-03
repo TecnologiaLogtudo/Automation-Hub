@@ -2,11 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 import os
 from sqlalchemy import text
 
-from app.config import APP_NAME, DEBUG
+from app.auth import KeycloakJWTMiddleware
+from app.config import APP_NAME, DEBUG, SECRET_KEY
 from app.database import engine, Base
 from app.routers import auth, automations, users, sectors
 from app.seed import seed_initial_data
@@ -72,6 +74,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization"],
 )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    https_only=not DEBUG,
+    same_site="lax",
+    max_age=60 * 60 * 8,
+)
+app.add_middleware(KeycloakJWTMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1")

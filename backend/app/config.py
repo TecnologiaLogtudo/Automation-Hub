@@ -1,10 +1,6 @@
 import os
-from datetime import datetime, timedelta
-from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -21,10 +17,23 @@ if not DATABASE_URL:
     DB_NAME = os.getenv("DB_NAME", "automacao_db")
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Auth
+# Session/Auth
 SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-secreta-muito-segura-aqui")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+# Keycloak OIDC
+KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "automation-hub")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "automation-hub-web")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
+KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI", "http://localhost:8000/api/v1/auth/callback")
+KEYCLOAK_SCOPE = os.getenv("KEYCLOAK_SCOPE", "openid profile email")
+KEYCLOAK_AUDIENCE = os.getenv("KEYCLOAK_AUDIENCE")
+
+KEYCLOAK_ISSUER = f"{KEYCLOAK_BASE_URL.rstrip('/')}/realms/{KEYCLOAK_REALM}"
+KEYCLOAK_AUTHORIZATION_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/auth"
+KEYCLOAK_TOKEN_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/token"
+KEYCLOAK_JWKS_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/certs"
+KEYCLOAK_LOGOUT_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/logout"
 
 # App
 APP_NAME = os.getenv("APP_NAME", "Automation Hub")

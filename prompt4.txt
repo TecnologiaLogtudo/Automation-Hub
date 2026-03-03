@@ -1,0 +1,29 @@
+Contexto:
+Quero monitorar acesso ao Hub e às automações.
+
+Objetivo:
+Criar sistema centralizado de logging de acessos.
+
+Requisitos:
+Middleware que registre:
+user_id
+aplicação
+endpoint
+método HTTP
+IP
+User-Agent
+Timestamp
+Origem (hub ou acesso direto)
+Persistir em PostgreSQL
+Estrutura da tabela access_logs
+Estratégia para evitar impacto de performance
+
+Modelo de consulta para gerar:
+Ranking de automações mais acessadas
+Usurios mais ativos
+Horários de pico
+Entregáveis:
+Código middleware
+Modelo SQL da tabela
+Exemplos de queries analíticas
+Estratégia de indexação

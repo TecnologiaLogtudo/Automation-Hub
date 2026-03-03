@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Sector, Automation
 from app.schemas import UserCreate, UserResponse, UserUpdate
-from app.auth import get_current_user, get_current_admin, get_password_hash
+from app.auth import AuthenticatedUser, get_current_user, get_current_admin, get_password_hash
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("", response_model=List[UserResponse])
 def get_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Get all users (Admin only)"""
     users = db.query(User).all()
@@ -21,16 +21,24 @@ def get_users(
 
 
 @router.get("/me", response_model=UserResponse)
-def get_my_profile(current_user: User = Depends(get_current_user)):
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
     """Get current user's profile"""
-    return current_user
+    if not current_user.email:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Local profile not found")
+    user = db.query(User).filter(User.email == current_user.email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Local profile not found")
+    return user
 
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Get a specific user by ID (Admin only)"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -48,7 +56,7 @@ def get_user(
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Create a new user (Admin only)"""
     # Check if email already exists
@@ -94,7 +102,7 @@ def update_user(
     user_id: int,
     user_update: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Update a user (Admin only)"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -139,7 +147,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Delete a user (Admin only)"""
     # Prevent deleting yourself

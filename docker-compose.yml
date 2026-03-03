@@ -27,7 +27,13 @@ services:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
-      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-automation-hub}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-automation-hub-web}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:8000/api/v1/auth/callback}
+      KEYCLOAK_SCOPE: ${KEYCLOAK_SCOPE:-openid profile email}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
     depends_on:
       db:
         condition: service_healthy

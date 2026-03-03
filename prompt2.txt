@@ -1,0 +1,22 @@
+Contexto:
+Tenho uma aplicação FastAPI chamada "Hub de Automações".
+Quero remover autenticação local e integrar com Keycloak via OpenID Connect.
+
+Objetivo:
+Implementar login via Authorization Code Flow com PKCE.
+
+Requisitos:
+Redirecionar usuário não autenticado para Keycloak
+Receber authorization code
+Trocar por access_token
+Validar JWT usando chave pública do Keycloak
+Armazenar usuário na sessão segura
+Extrair roles do token
+Implementar RBAC baseado em roles do Keycloak
+
+Entregáveis:
+Código completo de autenticação OIDC no FastAPI
+Middleware de validação JWT
+Exemplo de decorator para controle de roles
+Estrutura recomendada de pastas
+Explicação de como tratar refresh token

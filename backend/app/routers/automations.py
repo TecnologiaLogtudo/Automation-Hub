@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Automation, Sector
 from app.schemas import AutomationCreate, AutomationResponse, AutomationUpdate
-from app.auth import get_current_user, get_current_admin
+from app.auth import AuthenticatedUser, get_current_user, get_current_admin
 
 router = APIRouter(prefix="/automations", tags=["automations"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/automations", tags=["automations"])
 @router.get("", response_model=List[AutomationResponse])
 def get_automations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)
 ):
     """
     Get automations available for the current user's sector.
@@ -53,7 +53,7 @@ def get_automations(
 def get_automation(
     automation_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)
 ):
     """Get a specific automation by ID"""
     automation = db.query(Automation).filter(Automation.id == automation_id).first()
@@ -82,7 +82,7 @@ def get_automation(
 def create_automation(
     automation: AutomationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Create a new automation (Admin only)"""
     # Create automation
@@ -113,7 +113,7 @@ def update_automation(
     automation_id: int,
     automation_update: AutomationUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Update an automation (Admin only)"""
     automation = db.query(Automation).filter(Automation.id == automation_id).first()
@@ -148,7 +148,7 @@ def update_automation(
 def delete_automation(
     automation_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Delete an automation (Admin only)"""
     automation = db.query(Automation).filter(Automation.id == automation_id).first()

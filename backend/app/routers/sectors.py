@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Sector
 from app.schemas import SectorCreate, SectorResponse, SectorUpdate
-from app.auth import get_current_user, get_current_admin
+from app.auth import AuthenticatedUser, get_current_user, get_current_admin
 
 router = APIRouter(prefix="/sectors", tags=["sectors"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/sectors", tags=["sectors"])
 @router.get("", response_model=List[SectorResponse])
 def get_sectors(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)
 ):
     """Get all sectors"""
     sectors = db.query(Sector).all()
@@ -24,7 +24,7 @@ def get_sectors(
 def get_sector(
     sector_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)
 ):
     """Get a specific sector by ID"""
     sector = db.query(Sector).filter(Sector.id == sector_id).first()
@@ -42,7 +42,7 @@ def get_sector(
 def create_sector(
     sector: SectorCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Create a new sector (Admin only)"""
     # Check if slug already exists
@@ -71,7 +71,7 @@ def update_sector(
     sector_id: int,
     sector_update: SectorUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Update a sector (Admin only)"""
     sector = db.query(Sector).filter(Sector.id == sector_id).first()
@@ -94,7 +94,7 @@ def update_sector(
 def delete_sector(
     sector_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: AuthenticatedUser = Depends(get_current_admin)
 ):
     """Delete a sector (Admin only)"""
     sector = db.query(Sector).filter(Sector.id == sector_id).first()
