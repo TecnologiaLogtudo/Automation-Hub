@@ -11,11 +11,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     DB_USER = os.getenv("DB_USER", "postgres")
-    DB_PASS = os.getenv("DB_PASS", "postgres") # Senha padrão local
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres") # Senha padrão local
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
     DB_NAME = os.getenv("DB_NAME", "automacao_db")
-    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Session/Auth
 SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-secreta-muito-segura-aqui")
@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-secreta-muito-segura-aqui")
 # Keycloak OIDC
 KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8080")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "automation-hub")
-KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "automation-hub-web")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "hub-automacao")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
 KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI", "http://localhost:8000/api/v1/auth/callback")
 KEYCLOAK_SCOPE = os.getenv("KEYCLOAK_SCOPE", "openid profile email")
