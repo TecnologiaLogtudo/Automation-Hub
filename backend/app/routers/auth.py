@@ -17,6 +17,7 @@ from app.auth import (
     get_current_user,
     get_or_create_session_id,
     get_refresh_token_for_session,
+    require_session_user,
     refresh_access_token,
     roles_required,
     set_refresh_token_for_session,
@@ -118,6 +119,11 @@ def logout(request: Request):
 @router.get("/me", response_model=AuthenticatedUser)
 def get_current_user_info(current_user: AuthenticatedUser = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/session-protected")
+def session_protected(current_user: AuthenticatedUser = Depends(require_session_user)):
+    return {"detail": "Session OK", "user": current_user.model_dump(exclude={"token_claims"})}
 
 
 @router.get("/rbac-example")

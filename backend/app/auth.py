@@ -14,7 +14,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.responses import Response
 
 from app.config import (
     KEYCLOAK_AUDIENCE,
@@ -26,7 +26,6 @@ from app.config import (
     KEYCLOAK_SCOPE,
     KEYCLOAK_TOKEN_URL,
 )
-from app.database import get_db
 from app.models import User
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
@@ -256,74 +255,17 @@ def claims_to_authenticated_user(claims: dict[str, Any], db: Session) -> Authent
     return _claims_to_authenticated_user(claims, db)
 
 
-def _get_bearer_token(request: Request) -> Optional[str]:
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        return auth_header[7:].strip()
-    return None
-
-
-def _is_excluded_path(path: str) -> bool:
-    excluded_prefixes = (
-        "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/assets",
-        "/api/v1/auth/login",
-        "/api/v1/auth/callback",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout",
-        "/api/v1/auth/me",
-    )
-    return path.startswith(excluded_prefixes)
-
-
 class KeycloakJWTMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        path = request.url.path
-        bearer = _get_bearer_token(request)
-        bearer_error_detail: Optional[str] = None
-
-        if bearer:
-            try:
-                claims = validate_keycloak_jwt(bearer)
-                request.state.token_claims = claims
-            except HTTPException as exc:
-                # Invalid/legacy bearer token should not explode the middleware stack.
-                bearer_error_detail = str(exc.detail)
-
-        if path.startswith("/api/v1") and not _is_excluded_path(path):
-            session_user_data = request.session.get("user") if "session" in request.scope else None
-            if session_user_data:
-                request.state.auth_user = AuthenticatedUser(**session_user_data)
-            has_session_user = bool(session_user_data)
-            has_claims = bool(getattr(request.state, "token_claims", None))
-            if bearer_error_detail and not has_session_user:
-                return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content={"detail": f"Invalid bearer token: {bearer_error_detail}", "login_url": "/api/v1/auth/login"},
-                )
-            if not has_session_user and not has_claims:
-                accepts_html = "text/html" in request.headers.get("accept", "").lower()
-                if accepts_html:
-                    next_url = str(request.url)
-                    return RedirectResponse(url=f"/api/v1/auth/login?next={next_url}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-                return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content={"detail": "Not authenticated", "login_url": "/api/v1/auth/login"},
-                )
-
+        # Hub acts as web app with server-side session only.
+        # No JWT validation is performed globally in middleware.
+        session_user_data = request.session.get("user") if "session" in request.scope else None
+        if session_user_data:
+            request.state.auth_user = AuthenticatedUser(**session_user_data)
         return await call_next(request)
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> AuthenticatedUser:
-    claims = getattr(request.state, "token_claims", None)
-    if claims:
-        user = _claims_to_authenticated_user(claims, db)
-        request.state.auth_user = user
-        return user
-
+def require_session_user(request: Request) -> AuthenticatedUser:
     session_user = request.session.get("user") if "session" in request.scope else None
     if session_user:
         auth_user = AuthenticatedUser(**session_user)
@@ -332,12 +274,15 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Authent
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        detail="Not authenticated (session required)",
     )
 
 
-def get_current_admin(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+def get_current_user(current_user: AuthenticatedUser = Depends(require_session_user)) -> AuthenticatedUser:
+    return current_user
+
+
+def get_current_admin(current_user: AuthenticatedUser = Depends(require_session_user)) -> AuthenticatedUser:
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -349,7 +294,7 @@ def get_current_admin(current_user: AuthenticatedUser = Depends(get_current_user
 def require_roles(*required_roles: str):
     required_set = set(required_roles)
 
-    def dependency(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+    def dependency(current_user: AuthenticatedUser = Depends(require_session_user)) -> AuthenticatedUser:
         if not required_set.intersection(set(current_user.roles)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -373,6 +318,11 @@ def roles_required(*required_roles: str):
                 raise RuntimeError("roles_required decorator needs Request in endpoint signature")
 
             auth_user = getattr(request.state, "auth_user", None)
+            if not auth_user and "session" in request.scope:
+                session_user = request.session.get("user")
+                if session_user:
+                    auth_user = AuthenticatedUser(**session_user)
+                    request.state.auth_user = auth_user
             if not auth_user:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
             if not required_set.intersection(set(auth_user.roles)):
