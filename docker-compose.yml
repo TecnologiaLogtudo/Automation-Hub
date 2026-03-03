@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-automacao_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: automation-hub
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/${DB_NAME:-automacao_db}
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
