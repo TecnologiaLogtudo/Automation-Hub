@@ -283,10 +283,15 @@ class KeycloakJWTMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
         bearer = _get_bearer_token(request)
+        bearer_error_detail: Optional[str] = None
 
         if bearer:
-            claims = validate_keycloak_jwt(bearer)
-            request.state.token_claims = claims
+            try:
+                claims = validate_keycloak_jwt(bearer)
+                request.state.token_claims = claims
+            except HTTPException as exc:
+                # Invalid/legacy bearer token should not explode the middleware stack.
+                bearer_error_detail = str(exc.detail)
 
         if path.startswith("/api/v1") and not _is_excluded_path(path):
             session_user_data = request.session.get("user") if "session" in request.scope else None
@@ -294,6 +299,11 @@ class KeycloakJWTMiddleware(BaseHTTPMiddleware):
                 request.state.auth_user = AuthenticatedUser(**session_user_data)
             has_session_user = bool(session_user_data)
             has_claims = bool(getattr(request.state, "token_claims", None))
+            if bearer_error_detail and not has_session_user:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": f"Invalid bearer token: {bearer_error_detail}", "login_url": "/api/v1/auth/login"},
+                )
             if not has_session_user and not has_claims:
                 accepts_html = "text/html" in request.headers.get("accept", "").lower()
                 if accepts_html:
