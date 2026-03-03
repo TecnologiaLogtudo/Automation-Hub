@@ -21,11 +21,11 @@ if not DATABASE_URL:
 SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-secreta-muito-segura-aqui")
 
 # Keycloak OIDC
-KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8080")
-KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "automation-hub")
+KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL", "https://sso.logtudo.com.br")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "logtudo")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "hub-automacao")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
-KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI", "http://localhost:8000/api/v1/auth/callback")
+KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI", "https://automacao.logtudo.com.br/api/v1/auth/callback")
 KEYCLOAK_SCOPE = os.getenv("KEYCLOAK_SCOPE", "openid profile email")
 KEYCLOAK_AUDIENCE = os.getenv("KEYCLOAK_AUDIENCE")
 
