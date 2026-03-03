@@ -9,3 +9,4 @@ passlib[argon2]
 psycopg2-binary
 python-multipart
 httpx
+itsdangerous
