@@ -51,7 +51,7 @@ def login(request: Request, redirect_url: Optional[str] = None):
         redirect_uri=KEYCLOAK_REDIRECT_URI
     )
     
-    return RedirectResponse(auth_url)
+    return RedirectResponse(auth_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @router.get("/callback")
