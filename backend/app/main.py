@@ -63,7 +63,7 @@ origins = [
     "http://localhost",
     "http://localhost:5173",
     "http://localhost:8000",
-    "https://automacao.logtudo.com.br",
+    "https://auto.logtudo.com.br",
     f"https://{os.getenv('DOMAIN', 'automacao.logtudo.com.br')}"
 ]
 
@@ -77,9 +77,9 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    https_only=not DEBUG,
-    same_site="lax",
-    max_age=60 * 60 * 8,
+    https_only=not DEBUG, 
+    same_site="lax", # Necessário para o redirect do OIDC funcionar corretamente
+    max_age=60 * 60 * 8, # 8 horas
 )
 app.add_middleware(KeycloakJWTMiddleware)
 

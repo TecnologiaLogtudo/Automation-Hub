@@ -1,133 +1,144 @@
 import secrets
-import time
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.config import KEYCLOAK_LOGOUT_URL, KEYCLOAK_REDIRECT_URI
+from app.config import KEYCLOAK_REDIRECT_URI, KEYCLOAK_CLIENT_ID, KEYCLOAK_LOGOUT_URL
 from app.database import get_db
 from app.auth import (
     AuthenticatedUser,
     build_authorization_url,
-    claims_to_authenticated_user,
-    clear_refresh_token_for_session,
     exchange_code_for_tokens,
     generate_pkce_pair,
-    get_current_user,
-    get_or_create_session_id,
-    get_refresh_token_for_session,
-    require_session_user,
-    refresh_access_token,
-    roles_required,
-    set_refresh_token_for_session,
     validate_keycloak_jwt,
+    claims_to_authenticated_user,
+    get_or_create_session_id,
+    set_refresh_token_for_session,
+    clear_refresh_token_for_session,
+    get_current_user
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.get("/login")
-def login(request: Request, next: str = Query("/", description="URL to redirect after login")):
-    state = secrets.token_urlsafe(32)
+def login(request: Request, redirect_url: Optional[str] = None):
+    """
+    Inicia o fluxo de login OIDC.
+    1. Gera PKCE (verifier/challenge) e State.
+    2. Salva verifier e state na sessão.
+    3. Redireciona usuário para o Keycloak.
+    """
+    # Gera par PKCE
     code_verifier, code_challenge = generate_pkce_pair()
-    request.session["oidc_state"] = state
-    request.session["oidc_code_verifier"] = code_verifier
-    request.session["post_login_redirect"] = next
-    authorization_url = build_authorization_url(
+    
+    # Gera estado aleatório para prevenir CSRF
+    state = secrets.token_urlsafe(16)
+    
+    # Salva na sessão para validar no callback
+    request.session["oauth_state"] = state
+    request.session["oauth_verifier"] = code_verifier
+    
+    # Se o frontend mandou uma URL para voltar depois, salva também
+    if redirect_url:
+        request.session["post_login_redirect"] = redirect_url
+
+    # Constrói URL de autorização
+    auth_url = build_authorization_url(
         state=state,
         code_challenge=code_challenge,
-        redirect_uri=KEYCLOAK_REDIRECT_URI,
+        redirect_uri=KEYCLOAK_REDIRECT_URI
     )
-    return RedirectResponse(url=authorization_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    
+    return RedirectResponse(auth_url)
 
 
 @router.get("/callback")
-def callback(
-    request: Request,
-    code: str = Query(...),
-    state: str = Query(...),
-    db: Session = Depends(get_db),
-):
-    expected_state = request.session.get("oidc_state")
-    code_verifier = request.session.get("oidc_code_verifier")
-
-    if not expected_state or state != expected_state:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+def callback(request: Request, code: str, state: str, db: Session = Depends(get_db)):
+    """
+    Recebe o code do Keycloak, troca por tokens e cria a sessão.
+    """
+    # 1. Valida State (CSRF)
+    session_state = request.session.get("oauth_state")
+    if not session_state or state != session_state:
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    
+    # 2. Recupera PKCE Verifier
+    code_verifier = request.session.get("oauth_verifier")
     if not code_verifier:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="PKCE verifier not found")
+        raise HTTPException(status_code=400, detail="Missing code verifier")
 
-    token_payload = exchange_code_for_tokens(code=code, code_verifier=code_verifier, redirect_uri=KEYCLOAK_REDIRECT_URI)
-    access_token = token_payload.get("access_token")
+    # 3. Troca Code por Tokens
+    try:
+        token_data = exchange_code_for_tokens(
+            code=code,
+            code_verifier=code_verifier,
+            redirect_uri=KEYCLOAK_REDIRECT_URI
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Failed to exchange token: {str(e)}")
+
+    access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token")
+    
     if not access_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token from Keycloak")
+        raise HTTPException(status_code=401, detail="No access token received")
 
-    claims = validate_keycloak_jwt(access_token)
+    # 4. Valida e Decodifica o Token
+    try:
+        claims = validate_keycloak_jwt(access_token)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token signature: {str(e)}")
+
+    # 5. Cria objeto de usuário autenticado (vincula com DB local se possível)
     auth_user = claims_to_authenticated_user(claims, db)
-
+    
+    # 6. Persiste na Sessão
+    # Limpa dados temporários de auth
+    request.session.pop("oauth_state", None)
+    request.session.pop("oauth_verifier", None)
+    
+    # Salva usuário na sessão (serializado como dict)
+    request.session["user"] = auth_user.model_dump()
+    
+    # Salva refresh token (em memória ou banco seguro, não no cookie)
     sid = get_or_create_session_id(request)
-    refresh_token = token_payload.get("refresh_token")
     if refresh_token:
         set_refresh_token_for_session(sid, refresh_token)
 
-    request.session["user"] = auth_user.model_dump(exclude={"token_claims"})
-    request.session["access_token"] = access_token
-    request.session["access_token_expires_at"] = int(time.time()) + int(token_payload.get("expires_in", 300))
-    request.session.pop("oidc_state", None)
-    request.session.pop("oidc_code_verifier", None)
-
-    redirect_target = request.session.pop("post_login_redirect", "/")
-    return RedirectResponse(url=redirect_target, status_code=status.HTTP_302_FOUND)
+    # 7. Redireciona de volta para o HUB
+    # Pega a URL que o usuário queria ir, ou vai para a raiz
+    target_url = request.session.pop("post_login_redirect", "https://auto.logtudo.com.br/")
+    
+    return RedirectResponse(target_url)
 
 
-@router.post("/refresh")
-def refresh(request: Request):
-    sid = request.session.get("sid")
-    if not sid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session not found")
-
-    refresh_token = get_refresh_token_for_session(sid)
-    if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found")
-
-    token_payload = refresh_access_token(refresh_token)
-    access_token = token_payload.get("access_token")
-    if not access_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token in refresh")
-
-    if token_payload.get("refresh_token"):
-        set_refresh_token_for_session(sid, token_payload["refresh_token"])
-
-    request.session["access_token"] = access_token
-    request.session["access_token_expires_at"] = int(time.time()) + int(token_payload.get("expires_in", 300))
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": token_payload.get("expires_in"),
-    }
-
-
-@router.post("/logout")
+@router.get("/logout")
 def logout(request: Request):
+    """
+    Encerra a sessão local e redireciona para logout no Keycloak.
+    """
+    # 1. Limpa refresh token do store
     sid = request.session.get("sid")
     clear_refresh_token_for_session(sid)
+    
+    # 2. Limpa sessão local (cookie)
     request.session.clear()
-    return {"logout_url": KEYCLOAK_LOGOUT_URL, "detail": "Session cleared"}
+    
+    # 3. Monta URL de logout do Keycloak
+    # Keycloak 18+ usa post_logout_redirect_uri + client_id
+    logout_redirect = "https://auto.logtudo.com.br"
+    keycloak_logout = (
+        f"{KEYCLOAK_LOGOUT_URL}?"
+        f"client_id={KEYCLOAK_CLIENT_ID}&"
+        f"post_logout_redirect_uri={logout_redirect}"
+    )
+    
+    return RedirectResponse(keycloak_logout)
 
 
 @router.get("/me", response_model=AuthenticatedUser)
 def get_current_user_info(current_user: AuthenticatedUser = Depends(get_current_user)):
+    """Retorna informações do usuário logado (para o frontend)"""
     return current_user
-
-
-@router.get("/session-protected")
-def session_protected(current_user: AuthenticatedUser = Depends(require_session_user)):
-    return {"detail": "Session OK", "user": current_user.model_dump(exclude={"token_claims"})}
-
-
-@router.get("/rbac-example")
-@roles_required("admin", "manager")
-async def rbac_example(request: Request):
-    auth_user = request.state.auth_user
-    return {"detail": "Access granted", "roles": auth_user.roles}

@@ -28,23 +28,27 @@ from app.config import (
 )
 from app.models import User
 
+# Contexto de senha mantido para compatibilidade com usuários locais legados, se houver
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
+# Cache para as chaves públicas (JWKS) do Keycloak para evitar requests a cada validação
 _jwks_cache: dict[str, Any] = {"value": None, "expires_at": 0.0}
 _jwks_lock = threading.Lock()
-_JWKS_TTL_SECONDS = 600
+_JWKS_TTL_SECONDS = 600  # 10 minutos de cache
 
+# Store simples em memória para refresh tokens (em produção, usar Redis é recomendado)
 _refresh_token_store: dict[str, str] = {}
 _refresh_token_lock = threading.Lock()
 
 
 class AuthenticatedUser(BaseModel):
-    subject: str
-    id: Optional[int] = None
+    """Modelo unificado de usuário autenticado (via sessão ou token)"""
+    subject: str  # ID do usuário no Keycloak (sub)
+    id: Optional[int] = None  # ID local no banco (se sincronizado)
     email: Optional[str] = None
     full_name: str = ""
     roles: list[str] = Field(default_factory=list)
-    role: str = "user"
+    role: str = "user"  # Role primária para lógica simplificada
     is_admin: bool = False
     sector_id: Optional[int] = None
     token_claims: dict[str, Any] = Field(default_factory=dict)
@@ -59,25 +63,33 @@ def get_password_hash(password: str) -> str:
 
 
 def generate_pkce_pair() -> tuple[str, str]:
+    """Gera o par verifier e challenge para o fluxo PKCE"""
     verifier = secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("utf-8")).digest()).decode("utf-8").rstrip("=")
     return verifier, challenge
 
 
 def extract_roles(claims: dict[str, Any]) -> list[str]:
+    """Extrai roles de realm e resource_access do token"""
     roles: set[str] = set()
+    
+    # 1. Realm Roles
     realm_roles = claims.get("realm_access", {}).get("roles", [])
     roles.update(realm_roles)
 
+    # 2. Client Roles (resource_access)
     resource_access = claims.get("resource_access", {})
     if isinstance(resource_access, dict):
-        for client_data in resource_access.values():
-            if isinstance(client_data, dict):
-                roles.update(client_data.get("roles", []))
-    return sorted(roles)
+        # Tenta pegar roles específicas do nosso client, se existirem
+        client_access = resource_access.get(KEYCLOAK_CLIENT_ID, {})
+        if isinstance(client_access, dict):
+            roles.update(client_access.get("roles", []))
+            
+    return sorted(list(roles))
 
 
 def pick_primary_role(roles: list[str], fallback: str = "user") -> str:
+    """Define uma role principal baseada em prioridade para lógica simples"""
     priority = ["admin", "realm-admin", "manager", "analyst", "user"]
     role_set = set(roles)
     for role in priority:
@@ -87,24 +99,35 @@ def pick_primary_role(roles: list[str], fallback: str = "user") -> str:
 
 
 def _fetch_jwks() -> dict[str, Any]:
+    """Busca as chaves públicas do Keycloak com cache"""
     now = time.time()
     with _jwks_lock:
         if _jwks_cache["value"] and _jwks_cache["expires_at"] > now:
             return _jwks_cache["value"]
 
-    with httpx.Client(timeout=10.0) as client:
-        response = client.get(KEYCLOAK_JWKS_URL)
-        response.raise_for_status()
-        jwks = response.json()
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(KEYCLOAK_JWKS_URL)
+            response.raise_for_status()
+            jwks = response.json()
 
-    with _jwks_lock:
-        _jwks_cache["value"] = jwks
-        _jwks_cache["expires_at"] = time.time() + _JWKS_TTL_SECONDS
-    return jwks
+        with _jwks_lock:
+            _jwks_cache["value"] = jwks
+            _jwks_cache["expires_at"] = time.time() + _JWKS_TTL_SECONDS
+        return jwks
+    except Exception as e:
+        print(f"Erro ao buscar JWKS: {e}")
+        # Se falhar e tiver cache antigo, tenta usar (opcional, aqui falha direto)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auth service unavailable")
 
 
 def _find_signing_key(token: str) -> dict[str, Any]:
-    header = jwt.get_unverified_header(token)
+    """Encontra a chave pública correta para o token baseada no header 'kid'"""
+    try:
+        header = jwt.get_unverified_header(token)
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid JWT header")
+        
     kid = header.get("kid")
     if not kid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="JWT without kid header")
@@ -113,13 +136,27 @@ def _find_signing_key(token: str) -> dict[str, Any]:
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             return key
+            
+    # Se não achou, força refresh do cache e tenta de novo (caso a chave tenha rotacionado)
+    with _jwks_lock:
+        _jwks_cache["expires_at"] = 0
+    
+    jwks = _fetch_jwks()
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+            
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Signing key not found")
 
 
 def validate_keycloak_jwt(token: str) -> dict[str, Any]:
+    """Valida assinatura, expiração, issuer e audience do JWT"""
     signing_key = _find_signing_key(token)
-    verify_aud = bool(KEYCLOAK_AUDIENCE)
+    
+    # Se KEYCLOAK_AUDIENCE não estiver definido, usa o Client ID como padrão
+    # Keycloak muitas vezes coloca o 'account' como audience também, então verify_aud=True requer cuidado
     audience = KEYCLOAK_AUDIENCE or KEYCLOAK_CLIENT_ID
+    
     try:
         return jwt.decode(
             token,
@@ -127,7 +164,11 @@ def validate_keycloak_jwt(token: str) -> dict[str, Any]:
             algorithms=["RS256"],
             audience=audience,
             issuer=KEYCLOAK_ISSUER,
-            options={"verify_aud": verify_aud},
+            options={
+                "verify_aud": True,
+                "verify_exp": True,
+                "verify_iss": True
+            },
         )
     except JWTError as exc:
         raise HTTPException(
@@ -138,6 +179,7 @@ def validate_keycloak_jwt(token: str) -> dict[str, Any]:
 
 
 def build_authorization_url(state: str, code_challenge: str, redirect_uri: str) -> str:
+    """Constrói a URL para redirecionar o usuário para o login do Keycloak"""
     query = urlencode(
         {
             "client_id": KEYCLOAK_CLIENT_ID,
@@ -153,6 +195,7 @@ def build_authorization_url(state: str, code_challenge: str, redirect_uri: str) 
 
 
 def exchange_code_for_tokens(code: str, code_verifier: str, redirect_uri: str) -> dict[str, Any]:
+    """Troca o authorization code por tokens (Access, ID, Refresh)"""
     payload = {
         "grant_type": "authorization_code",
         "client_id": KEYCLOAK_CLIENT_ID,
@@ -160,6 +203,8 @@ def exchange_code_for_tokens(code: str, code_verifier: str, redirect_uri: str) -
         "redirect_uri": redirect_uri,
         "code_verifier": code_verifier,
     }
+    
+    # Para clientes confidenciais, o secret é obrigatório
     if KEYCLOAK_CLIENT_SECRET:
         payload["client_secret"] = KEYCLOAK_CLIENT_SECRET
 
@@ -174,6 +219,7 @@ def exchange_code_for_tokens(code: str, code_verifier: str, redirect_uri: str) -
 
 
 def refresh_access_token(refresh_token: str) -> dict[str, Any]:
+    """Usa o refresh token para obter um novo access token"""
     payload = {
         "grant_type": "refresh_token",
         "client_id": KEYCLOAK_CLIENT_ID,
@@ -191,6 +237,8 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
             )
         return response.json()
 
+
+# --- Gerenciamento de Sessão ---
 
 def get_or_create_session_id(request: Request) -> str:
     sid = request.session.get("sid")
@@ -218,25 +266,28 @@ def clear_refresh_token_for_session(sid: Optional[str]) -> None:
 
 
 def _claims_to_authenticated_user(claims: dict[str, Any], db: Session) -> AuthenticatedUser:
+    """Converte claims do JWT em objeto AuthenticatedUser, mesclando com dados locais se existirem"""
     email = claims.get("email")
     subject = claims.get("sub")
     if not subject:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token without subject")
 
     keycloak_roles = extract_roles(claims)
+    
+    # Tenta vincular com usuário local pelo email para pegar preferências/setor
     local_user = db.query(User).filter(User.email == email).first() if email else None
 
+    # Define role principal (prioridade para Keycloak, fallback para local)
     primary_role = pick_primary_role(keycloak_roles, fallback=(local_user.role if local_user else "user"))
+    
+    # Admin se tiver role 'admin' no Keycloak OU flag is_admin no banco local
     is_admin = "admin" in keycloak_roles or "realm-admin" in keycloak_roles or bool(local_user and local_user.is_admin)
 
     full_name = claims.get("name") or (local_user.full_name if local_user else "") or email or subject
     sector_id = claims.get("sector_id") or (local_user.sector_id if local_user else None)
-    local_id = local_user.id if local_user else claims.get("local_user_id")
-    if local_id is not None:
-        try:
-            local_id = int(local_id)
-        except (TypeError, ValueError):
-            local_id = None
+    
+    # ID local para relacionamentos de banco de dados
+    local_id = local_user.id if local_user else None
 
     return AuthenticatedUser(
         subject=subject,
@@ -256,25 +307,33 @@ def claims_to_authenticated_user(claims: dict[str, Any], db: Session) -> Authent
 
 
 class KeycloakJWTMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware que popula request.state.auth_user baseado na sessão.
+    Não valida o JWT remotamente a cada request para performance, confia na sessão segura (cookie assinado).
+    """
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Hub acts as web app with server-side session only.
-        # No JWT validation is performed globally in middleware.
         session_user_data = request.session.get("user") if "session" in request.scope else None
         if session_user_data:
-            request.state.auth_user = AuthenticatedUser(**session_user_data)
+            try:
+                request.state.auth_user = AuthenticatedUser(**session_user_data)
+            except Exception:
+                # Se o modelo mudar ou dados corrompidos, limpa a sessão
+                request.session.pop("user", None)
+        
         return await call_next(request)
 
 
-def require_session_user(request: Request) -> AuthenticatedUser:
-    session_user = request.session.get("user") if "session" in request.scope else None
-    if session_user:
-        auth_user = AuthenticatedUser(**session_user)
-        request.state.auth_user = auth_user
-        return auth_user
+# --- Dependências para Rotas ---
 
+def require_session_user(request: Request) -> AuthenticatedUser:
+    """Dependência que exige usuário logado na sessão"""
+    if hasattr(request.state, "auth_user") and request.state.auth_user:
+        return request.state.auth_user
+
+    # Se for API call, retorna 401. Se for navegação, o frontend deve redirecionar para login.
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated (session required)",
+        detail="Not authenticated",
     )
 
 
@@ -291,11 +350,14 @@ def get_current_admin(current_user: AuthenticatedUser = Depends(require_session_
     return current_user
 
 
-def require_roles(*required_roles: str):
+def roles_required(*required_roles: str):
+    """Decorator/Dependência para exigir roles específicas"""
     required_set = set(required_roles)
 
     def dependency(current_user: AuthenticatedUser = Depends(require_session_user)) -> AuthenticatedUser:
-        if not required_set.intersection(set(current_user.roles)):
+        user_roles = set(current_user.roles)
+        # Verifica se tem pelo menos uma das roles requeridas (ou se é admin, que geralmente pode tudo)
+        if not required_set.intersection(user_roles) and "admin" not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Required roles: {sorted(required_set)}",
@@ -303,35 +365,3 @@ def require_roles(*required_roles: str):
         return current_user
 
     return dependency
-
-
-def roles_required(*required_roles: str):
-    required_set = set(required_roles)
-
-    def decorator(func: Callable):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            request: Optional[Request] = kwargs.get("request")
-            if request is None:
-                request = next((arg for arg in args if isinstance(arg, Request)), None)
-            if request is None:
-                raise RuntimeError("roles_required decorator needs Request in endpoint signature")
-
-            auth_user = getattr(request.state, "auth_user", None)
-            if not auth_user and "session" in request.scope:
-                session_user = request.session.get("user")
-                if session_user:
-                    auth_user = AuthenticatedUser(**session_user)
-                    request.state.auth_user = auth_user
-            if not auth_user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-            if not required_set.intersection(set(auth_user.roles)):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Required roles: {sorted(required_set)}",
-                )
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator

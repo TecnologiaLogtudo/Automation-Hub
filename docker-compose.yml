@@ -41,7 +41,7 @@ services:
       - "8000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.automation-hub.rule=Host(`automacao.logtudo.com.br`)
+      - traefik.http.routers.automation-hub.rule=Host(`auto.logtudo.com.br`)
       - traefik.http.routers.automation-hub.entrypoints=http,https
       - traefik.http.services.automation-hub.loadbalancer.server.port=8000
       - coolify.managed=true
