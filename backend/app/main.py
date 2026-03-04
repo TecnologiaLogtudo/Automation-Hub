@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 import os
@@ -108,7 +108,6 @@ if os.path.exists(assets_dir):
 async def serve_spa(request: Request, full_path: str):
     # Se a rota começar com "api", é uma falha na API real
     if full_path.startswith("api"):
-        from fastapi.responses import JSONResponse
         return JSONResponse(
             status_code=404, 
             content={
@@ -133,7 +132,6 @@ async def serve_spa(request: Request, full_path: str):
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
-    from fastapi.responses import JSONResponse
     return JSONResponse(
         status_code=404,
         content={
