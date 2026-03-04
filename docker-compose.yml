@@ -4,15 +4,14 @@ services:
   # Database
   db:
     image: postgres:16-alpine
-    container_name: automation-hub-db
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
-      POSTGRES_DB: ${DB_NAME:-automacao_db}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-o6Qiar6UAUB7}
+      POSTGRES_DB: ${DB_NAME:-auto_teste}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-automacao_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-auto_teste}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,14 +21,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: automation-hub
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/${DB_NAME:-automacao_db}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/${DB_NAME:-auto_teste}
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-automation-hub}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-automation-hub-web}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-logtudo}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-hub-automacao}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
       KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:8000/api/v1/auth/callback}
       KEYCLOAK_SCOPE: ${KEYCLOAK_SCOPE:-openid profile email}
