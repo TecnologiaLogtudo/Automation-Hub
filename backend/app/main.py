@@ -122,7 +122,7 @@ async def serve_spa(request: Request, full_path: str):
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
 
-    # 2. Tenta encontrar o arquivo dentro de assets (mesmo que o prefixo /assets tenha falhado no mount)
+    # 2. Tenta encontrar o arquivo dentro de assets
     assets_file_path = os.path.join(assets_dir, full_path)
     if os.path.exists(assets_file_path) and os.path.isfile(assets_file_path):
         return FileResponse(assets_file_path)
