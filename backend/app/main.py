@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -74,14 +76,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization"],
 )
+app.add_middleware(KeycloakJWTMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    https_only=not DEBUG, 
-    same_site="lax", # Necessário para o redirect do OIDC funcionar corretamente
-    max_age=60 * 60 * 8, # 8 horas
+    https_only=not DEBUG,
+    same_site="lax",  # Necessário para o redirect do OIDC funcionar corretamente
+    max_age=60 * 60 * 8,  # 8 horas
 )
-app.add_middleware(KeycloakJWTMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1")
@@ -95,7 +97,14 @@ async def health_check():
     return {"status": "healthy"}
 
 # --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+# Prioriza /backend/static (imagem Docker). Em desenvolvimento local, usa /frontend/dist.
+project_root = Path(__file__).resolve().parents[2]
+static_candidates = [
+    project_root / "backend" / "static",
+    project_root / "frontend" / "dist",
+]
+static_dir_path = next((candidate for candidate in static_candidates if candidate.exists()), static_candidates[0])
+static_dir = str(static_dir_path)
 
 # 1. Monta a pasta de assets (CSS/JS gerados pelo Vite/React)
 assets_dir = os.path.join(static_dir, "assets")
