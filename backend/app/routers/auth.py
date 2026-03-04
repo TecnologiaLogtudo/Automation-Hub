@@ -2,11 +2,12 @@ import secrets
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
+from itsdangerous import BadSignature, URLSafeSerializer
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.config import KEYCLOAK_REDIRECT_URI, KEYCLOAK_CLIENT_ID, KEYCLOAK_LOGOUT_URL
+from app.config import KEYCLOAK_REDIRECT_URI, KEYCLOAK_CLIENT_ID, KEYCLOAK_LOGOUT_URL, SECRET_KEY
 from app.database import get_db
 from app.auth import (
     AuthenticatedUser,
@@ -22,6 +23,7 @@ from app.auth import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_state_serializer = URLSafeSerializer(SECRET_KEY, salt="oidc-state-v1")
 
 
 def _frontend_base_url() -> str:
@@ -58,6 +60,28 @@ def _build_login_error_redirect(error_code: str) -> str:
     return f"{_frontend_base_url()}/login?{query}"
 
 
+def _encode_state_payload(csrf: str, code_verifier: str, redirect_url: str) -> str:
+    return _state_serializer.dumps(
+        {
+            "csrf": csrf,
+            "cv": code_verifier,
+            "redir": redirect_url,
+        }
+    )
+
+
+def _decode_state_payload(state: Optional[str]) -> dict:
+    if not state:
+        return {}
+    try:
+        payload = _state_serializer.loads(state)
+        if isinstance(payload, dict):
+            return payload
+    except BadSignature:
+        return {}
+    return {}
+
+
 @router.get("/login")
 def login(request: Request, redirect_url: Optional[str] = None):
     """
@@ -70,15 +94,17 @@ def login(request: Request, redirect_url: Optional[str] = None):
     code_verifier, code_challenge = generate_pkce_pair()
     
     # Gera estado aleatório para prevenir CSRF
-    state = secrets.token_urlsafe(16)
+    csrf = secrets.token_urlsafe(16)
+    safe_redirect = _sanitize_redirect_url(redirect_url)
+    state = _encode_state_payload(csrf=csrf, code_verifier=code_verifier, redirect_url=safe_redirect)
     
     # Salva na sessão para validar no callback
-    request.session["oauth_state"] = state
+    request.session["oauth_state"] = csrf
     request.session["oauth_verifier"] = code_verifier
     request.session.pop("user", None)
 
     # Salva URL de retorno já sanitizada para evitar open redirect
-    request.session["post_login_redirect"] = _sanitize_redirect_url(redirect_url)
+    request.session["post_login_redirect"] = safe_redirect
 
     # Constrói URL de autorização
     auth_url = build_authorization_url(
@@ -102,9 +128,14 @@ def callback(
     """
     Recebe o code do Keycloak, troca por tokens e cria a sessão.
     """
-    target_url = request.session.get("post_login_redirect", _sanitize_redirect_url(None))
+    state_payload = _decode_state_payload(state)
+    state_csrf = state_payload.get("csrf")
+    state_verifier = state_payload.get("cv")
+    state_redirect = state_payload.get("redir")
+
+    target_url = request.session.get("post_login_redirect") or _sanitize_redirect_url(state_redirect)
     session_state = request.session.get("oauth_state")
-    code_verifier = request.session.get("oauth_verifier")
+    code_verifier = request.session.get("oauth_verifier") or state_verifier
 
     if error:
         request.session.pop("oauth_state", None)
@@ -125,7 +156,17 @@ def callback(
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
-    if not session_state or state != session_state:
+    if not state_csrf:
+        request.session.pop("oauth_state", None)
+        request.session.pop("oauth_verifier", None)
+        request.session.pop("post_login_redirect", None)
+        return RedirectResponse(
+            _build_login_error_redirect("invalid_state"),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    # Se a sessão existir, exige que o csrf da sessão case com o csrf assinado no state.
+    if session_state and session_state != state_csrf:
         request.session.pop("oauth_state", None)
         request.session.pop("oauth_verifier", None)
         request.session.pop("post_login_redirect", None)
