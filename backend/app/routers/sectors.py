@@ -7,7 +7,7 @@ from app.models import User, Sector
 from app.schemas import SectorCreate, SectorResponse, SectorUpdate
 from app.auth import AuthenticatedUser, get_current_user, get_current_admin
 
-router = APIRouter(tags=["sectors"])
+router = APIRouter(prefix="/sectors", tags=["sectors"])
 
 
 @router.get("", response_model=List[SectorResponse])

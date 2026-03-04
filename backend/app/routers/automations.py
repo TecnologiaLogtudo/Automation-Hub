@@ -7,7 +7,7 @@ from app.models import User, Automation, Sector
 from app.schemas import AutomationCreate, AutomationResponse, AutomationUpdate
 from app.auth import AuthenticatedUser, get_current_user, get_current_admin
 
-router = APIRouter(tags=["automations"])
+router = APIRouter(prefix="/automations", tags=["automations"])
 
 
 @router.get("", response_model=List[AutomationResponse])

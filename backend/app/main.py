@@ -64,7 +64,7 @@ origins = [
     "http://localhost:5173",
     "http://localhost:8000",
     "https://auto.logtudo.com.br",
-    f"https://{os.getenv('DOMAIN', 'automacao.logtudo.com.br')}"
+    f"https://{os.getenv('DOMAIN', 'auto.logtudo.com.br')}"
 ]
 
 app.add_middleware(
@@ -83,46 +83,52 @@ app.add_middleware(
 )
 app.add_middleware(KeycloakJWTMiddleware)
 
-# --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
-# Define o caminho absoluto para a pasta estática
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-assets_dir = os.path.join(static_dir, "assets")
-
-# Include routers - Registramos os roteadores ANTES do catch-all do SPA
-# Usamos prefixos claros para evitar conflitos
-app.include_router(auth.router, prefix="/api/v1/auth")
-app.include_router(automations.router, prefix="/api/v1/automations")
-app.include_router(users.router, prefix="/api/v1/users")
-app.include_router(sectors.router, prefix="/api/v1/sectors")
+# Include routers - Usamos o prefixo v1 para todos os módulos
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(automations.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(sectors.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
+# --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
+# Define caminhos absolutos para a pasta estática
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+assets_dir = os.path.join(static_dir, "assets")
+
 # 1. Monta a pasta de assets (CSS/JS gerados pelo Vite/React)
-# Montamos em /assets para que as referências do index.html funcionem
 if os.path.exists(assets_dir):
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # 2. Rota Catch-All para SPA (Single Page Application)
-# Qualquer rota não encontrada na API ou nos Assets será direcionada para o index.html
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
-async def serve_spa(full_path: str):
-    # Se a rota começar com "api", é uma falha na API (não deve retornar index.html)
+async def serve_spa(request: Request, full_path: str):
+    # Se a rota começar com "api", é uma falha na API real
     if full_path.startswith("api"):
         from fastapi.responses import JSONResponse
         return JSONResponse(
             status_code=404, 
-            content={"error": f"Endpoint de API não encontrado: /{full_path}"}
+            content={
+                "error": f"Endpoint de API não encontrado: /{full_path}",
+                "method": request.method,
+                "hint": "Verifique se a rota está registrada corretamente no backend."
+            }
         )
 
-    # Verifica se o arquivo solicitado existe na raiz estática (ex: favicon.ico, robot.svg)
+    # 1. Tenta encontrar o arquivo exato no diretório estático (ex: favicon.ico, robot.svg)
     file_path = os.path.join(static_dir, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
 
-    # Caso contrário, retorna o index.html para o React Router assumir
+    # 2. Tenta encontrar o arquivo dentro de assets (mesmo que o prefixo /assets tenha falhado no mount)
+    assets_file_path = os.path.join(assets_dir, full_path)
+    if os.path.exists(assets_file_path) and os.path.isfile(assets_file_path):
+        return FileResponse(assets_file_path)
+
+    # 3. Fallback para index.html (SPA)
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -130,5 +136,9 @@ async def serve_spa(full_path: str):
     from fastapi.responses import JSONResponse
     return JSONResponse(
         status_code=404,
-        content={"error": f"Arquivo não encontrado e index.html ausente em {static_dir}"}
+        content={
+            "error": "Arquivo não encontrado e index.html ausente.",
+            "static_dir": static_dir,
+            "full_path": full_path
+        }
     )

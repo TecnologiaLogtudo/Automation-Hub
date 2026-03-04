@@ -19,7 +19,7 @@ from app.auth import (
     get_current_user
 )
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.get("/login")
@@ -55,6 +55,7 @@ def login(request: Request, redirect_url: Optional[str] = None):
 
 
 @router.get("/callback")
+@router.get("/callback/")
 def callback(request: Request, code: str, state: str, db: Session = Depends(get_db)):
     """
     Recebe o code do Keycloak, troca por tokens e cria a sessão.
