@@ -21,7 +21,7 @@ export default function Login() {
   const handleLogin = () => {
     // Redireciona para o endpoint do backend que inicia o fluxo OIDC
     // O backend irá redirecionar para o Keycloak
-    window.location.href = `${API_URL}/auth/login?redirect_url=${window.location.origin}`
+    window.location.href = `${API_URL}/auth/login`
   }
 
   return (
