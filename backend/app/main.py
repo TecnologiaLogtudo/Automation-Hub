@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
 
         index_path = static_dir / "index.html"
         if index_path.exists() and index_path.is_file():
-            return FileResponse(str(index_path))
+            return FileResponse(str(index_path), headers={"Cache-Control": "no-store"})
 
         return JSONResponse(status_code=404, content={"error": "Frontend files not found."})
 
