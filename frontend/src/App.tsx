@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import Login from './pages/Login'
@@ -51,6 +52,12 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const { fetchUser } = useAuthStore()
+
+  useEffect(() => {
+    fetchUser()
+  }, [fetchUser])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

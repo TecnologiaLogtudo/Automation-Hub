@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { authApi } from '../services/api'
+import { authApi, API_URL } from '../services/api'
 
 interface User {
   id: number
@@ -15,80 +14,45 @@ interface User {
 
 interface AuthState {
   user: User | null
-  token: string | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  login: (email: string, password: string) => Promise<void>
   logout: () => void
   fetchUser: () => Promise<void>
   clearError: () => void
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true, // Começa carregando para verificar a sessão
+  error: null,
 
-      login: async (email: string, password: string) => {
-        set({ isLoading: true, error: null })
-        try {
-          const response = await authApi.login(email, password)
-          const { access_token } = response.data
-          
-          localStorage.setItem('token', access_token)
-          set({ token: access_token, isLoading: false })
-          
-          // Fetch user info
-          await get().fetchUser()
-        } catch (error: any) {
-          const message = error.response?.data?.detail || 'Erro ao fazer login'
-          set({ error: message, isLoading: false })
-          throw error
-        }
-      },
+  logout: () => {
+    set({ user: null, isAuthenticated: false, error: null })
+    // Redireciona para o logout do backend (que limpa cookies e chama Keycloak)
+    window.location.href = `${API_URL}/auth/logout`
+  },
 
-      logout: () => {
-        localStorage.removeItem('token')
-        set({ user: null, token: null, isAuthenticated: false, error: null })
-      },
-
-      fetchUser: async () => {
-        try {
-          const response = await authApi.getMe()
-          set({ 
-            user: response.data, 
-            isAuthenticated: true 
-          })
-        } catch (error) {
-          get().logout()
-        }
-      },
-
-      clearError: () => set({ error: null }),
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({ token: state.token }),
-    }
-  )
-)
-
-// Initialize user on app load if token exists
-const initializeAuth = async () => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    useAuthStore.setState({ isLoading: true })
+  fetchUser: async () => {
+    set({ isLoading: true })
     try {
-      await useAuthStore.getState().fetchUser()
-    } finally {
-      useAuthStore.setState({ isLoading: false })
+      const response = await authApi.getMe()
+      set({ 
+        user: response.data, 
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      })
+    } catch (error) {
+      set({ 
+        user: null, 
+        isAuthenticated: false, 
+        isLoading: false 
+        // Não definimos erro aqui para não mostrar mensagem na tela de login inicial
+      })
     }
-  }
-}
+  },
 
-initializeAuth()
+  clearError: () => set({ error: null }),
+}))

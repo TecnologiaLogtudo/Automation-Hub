@@ -1,25 +1,27 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { Bot, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Bot, LogIn, AlertCircle } from 'lucide-react'
+import { API_URL } from '../services/api'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login, isLoading, error, clearError } = useAuthStore()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const { isAuthenticated, isLoading, error, clearError } = useAuthStore()
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    clearError()
-    
-    try {
-      await login(email, password)
+  useEffect(() => {
+    if (isAuthenticated) {
       navigate('/')
-    } catch {
-      // Error is handled in the store
     }
+  }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    clearError()
+  }, [clearError])
+
+  const handleLogin = () => {
+    // Redireciona para o endpoint do backend que inicia o fluxo OIDC
+    // O backend irá redirecionar para o Keycloak
+    window.location.href = `${API_URL}/auth/login?redirect_url=${window.location.origin}`
   }
 
   return (
@@ -48,67 +50,33 @@ export default function Login() {
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                E-mail
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="seu@email.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Senha
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+          {/* Login Action */}
+          <div className="space-y-6">
+            <div className="text-center text-slate-300 text-sm">
+              <p>Faça login com sua conta corporativa para acessar o sistema.</p>
             </div>
 
             <button
-              type="submit"
+              onClick={handleLogin}
               disabled={isLoading}
               className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25"
             >
               {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Entrando...
-                </span>
+                  Redirecionando...
+                </div>
               ) : (
-                'Entrar'
+                <div className="flex items-center justify-center gap-2">
+                  <LogIn className="w-5 h-5" />
+                  Entrar com SSO
+                </div>
               )}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>
