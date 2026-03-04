@@ -34,7 +34,7 @@ api.interceptors.response.use(
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
-  getMe: () => api.get('/auth/me'),
+  getMe: () => api.get('/auth/login'),
 }
 
 // Automations API
