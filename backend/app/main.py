@@ -83,7 +83,7 @@ app.add_middleware(
 )
 app.add_middleware(KeycloakJWTMiddleware)
 
-# Include routers - Usamos o prefixo v1 para todos os módulos
+# Include routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(automations.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
@@ -95,48 +95,38 @@ async def health_check():
     return {"status": "healthy"}
 
 # --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
-# Define caminhos absolutos para a pasta estática
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-assets_dir = os.path.join(static_dir, "assets")
 
 # 1. Monta a pasta de assets (CSS/JS gerados pelo Vite/React)
+assets_dir = os.path.join(static_dir, "assets")
 if os.path.exists(assets_dir):
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # 2. Rota Catch-All para SPA (Single Page Application)
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
 async def serve_spa(request: Request, full_path: str):
-    # Se a rota começar com "api", é uma falha na API real
+    # Se a rota começar com "api", é uma falha na API real (não deve retornar index.html)
     if full_path.startswith("api"):
         return JSONResponse(
             status_code=404, 
             content={
                 "error": f"Endpoint de API não encontrado: /{full_path}",
-                "method": request.method,
-                "hint": "Verifique se a rota está registrada corretamente no backend."
+                "method": request.method
             }
         )
 
-    # 1. Tenta encontrar o arquivo exato no diretório estático (ex: favicon.ico, robot.svg)
+    # 1. Tenta encontrar o arquivo no diretório estático (ex: favicon.ico, robot.svg)
+    # Se full_path for "assets/index.js", ele procura em "static/assets/index.js"
     file_path = os.path.join(static_dir, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
 
-    # 2. Tenta encontrar o arquivo dentro de assets
-    assets_file_path = os.path.join(assets_dir, full_path)
-    if os.path.exists(assets_file_path) and os.path.isfile(assets_file_path):
-        return FileResponse(assets_file_path)
-
-    # 3. Fallback para index.html (SPA)
+    # 2. Fallback para index.html (SPA) para permitir navegação no frontend
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
     return JSONResponse(
         status_code=404,
-        content={
-            "error": "Arquivo não encontrado e index.html ausente.",
-            "static_dir": static_dir,
-            "full_path": full_path
-        }
+        content={"error": "Frontend files not found."}
     )
