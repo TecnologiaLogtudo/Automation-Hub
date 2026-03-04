@@ -97,13 +97,15 @@ async def health_check():
     return {"status": "healthy"}
 
 # --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
-# Prioriza /backend/static (imagem Docker). Em desenvolvimento local, usa /frontend/dist.
-project_root = Path(__file__).resolve().parents[2]
+# Prioriza caminhos de build em produção/container e mantém fallback para desenvolvimento local.
+backend_root = Path(__file__).resolve().parents[1]  # /app (container) ou /.../backend (local)
+repo_root = backend_root.parent
 static_candidates = [
-    project_root / "backend" / "static",
-    project_root / "frontend" / "dist",
+    backend_root / "static",       # Dockerfile atual copia para /app/static
+    backend_root / "dist",         # fallback caso deploy coloque em /app/dist
+    repo_root / "frontend" / "dist",  # desenvolvimento local
 ]
-static_dir_path = next((candidate for candidate in static_candidates if candidate.exists()), static_candidates[0])
+static_dir_path = next((candidate for candidate in static_candidates if candidate.exists()), backend_root / "static")
 static_dir = str(static_dir_path)
 
 # 1. Monta a pasta de assets (CSS/JS gerados pelo Vite/React)
