@@ -83,38 +83,41 @@ app.add_middleware(
 )
 app.add_middleware(KeycloakJWTMiddleware)
 
-# Include routers
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(automations.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(sectors.router, prefix="/api/v1")
+# --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
+# Define o caminho absoluto para a pasta estática
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+assets_dir = os.path.join(static_dir, "assets")
 
+# Include routers - Registramos os roteadores ANTES do catch-all do SPA
+# Usamos prefixos claros para evitar conflitos
+app.include_router(auth.router, prefix="/api/v1/auth")
+app.include_router(automations.router, prefix="/api/v1/automations")
+app.include_router(users.router, prefix="/api/v1/users")
+app.include_router(sectors.router, prefix="/api/v1/sectors")
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
-# --- CONFIGURAÇÃO DE ARQUIVOS ESTÁTICOS (FRONTEND) ---
-
-# Define o caminho absoluto para a pasta estática (copiada pelo Dockerfile para /app/static)
-# Como estamos em /app/app/main.py, subimos um nível para achar /app/static
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-assets_dir = os.path.join(static_dir, "assets")
-
 # 1. Monta a pasta de assets (CSS/JS gerados pelo Vite/React)
+# Montamos em /assets para que as referências do index.html funcionem
 if os.path.exists(assets_dir):
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # 2. Rota Catch-All para SPA (Single Page Application)
-# Qualquer rota não encontrada na API será direcionada para o index.html
+# Qualquer rota não encontrada na API ou nos Assets será direcionada para o index.html
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
 async def serve_spa(full_path: str):
-    # Se a rota começar com "api", retorna 404 (não tenta servir HTML)
+    # Se a rota começar com "api", é uma falha na API (não deve retornar index.html)
     if full_path.startswith("api"):
-        return {"error": "Not found"}, 404
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404, 
+            content={"error": f"Endpoint de API não encontrado: /{full_path}"}
+        )
 
-    # Verifica se o arquivo solicitado existe na raiz estática (ex: favicon.ico, robots.txt)
+    # Verifica se o arquivo solicitado existe na raiz estática (ex: favicon.ico, robot.svg)
     file_path = os.path.join(static_dir, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
@@ -124,4 +127,8 @@ async def serve_spa(full_path: str):
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
-    return {"error": "Frontend files not found. Build process failed?"}, 404
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Arquivo não encontrado e index.html ausente em {static_dir}"}
+    )

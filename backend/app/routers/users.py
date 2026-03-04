@@ -7,7 +7,7 @@ from app.models import User, Sector, Automation
 from app.schemas import UserCreate, UserResponse, UserUpdate
 from app.auth import AuthenticatedUser, get_current_user, get_current_admin, get_password_hash
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 @router.get("", response_model=List[UserResponse])

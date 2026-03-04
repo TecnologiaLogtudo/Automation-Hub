@@ -19,7 +19,7 @@ from app.auth import (
     get_current_user
 )
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.get("/login")
