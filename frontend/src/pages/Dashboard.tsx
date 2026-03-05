@@ -4,10 +4,19 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { automationsApi } from '../services/api'
 import { 
-  Bot, Search, LogOut, Settings, ExternalLink, 
+  Bot, Search, LogOut, Settings, ExternalLink, HelpCircle, FileText, Video, 
   LayoutGrid, ChevronRight
 } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
+
+type HelpType = 'pdf' | 'video'
+
+interface AutomationConfig {
+  help_url?: string
+  help_type?: HelpType
+  help_title?: string
+  [key: string]: any
+}
 
 interface Automation {
   id: number
@@ -16,6 +25,7 @@ interface Automation {
   target_url: string
   icon: string
   is_active: boolean
+  config?: AutomationConfig
 }
 
 const getIconComponent = (iconName: string) => {
@@ -63,8 +73,23 @@ export default function Dashboard() {
     logout()
   }
 
+  const openInNewTab = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   const openAutomation = (url: string) => {
-    window.open(url, '_blank')
+    openInNewTab(url)
+  }
+
+  const openHelp = (event: React.MouseEvent<HTMLButtonElement>, url: string) => {
+    event.stopPropagation()
+    openInNewTab(url)
+  }
+
+  const getHelpIcon = (type?: HelpType) => {
+    if (type === 'video') return Video
+    if (type === 'pdf') return FileText
+    return HelpCircle
   }
 
   return (
@@ -171,6 +196,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAutomations.map((automation, index) => {
               const Icon = getIconComponent(automation.icon)
+              const helpUrl = automation.config?.help_url?.trim()
+              const HelpIcon = getHelpIcon(automation.config?.help_type)
               return (
                 <div
                   key={automation.id}
@@ -193,10 +220,23 @@ export default function Dashboard() {
 
                   {/* Action */}
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <span className="text-sm text-slate-500 flex items-center gap-1">
-                      Acessar
-                      <ChevronRight className="w-4 h-4" />
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-500 flex items-center gap-1">
+                        Acessar
+                        <ChevronRight className="w-4 h-4" />
+                      </span>
+                      {helpUrl && (
+                        <button
+                          type="button"
+                          onClick={(event) => openHelp(event, helpUrl)}
+                          title={automation.config?.help_title || 'Abrir documentação'}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          <HelpIcon className="w-4 h-4" />
+                          Dúvidas
+                        </button>
+                      )}
+                    </div>
                     <ExternalLink className="w-5 h-5 text-blue-500" />
                   </div>
                 </div>
