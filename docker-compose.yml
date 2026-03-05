@@ -1,32 +1,35 @@
 version: '3.8'
 
 services:
-  # Database
+  # Database (dev)
   db:
     image: postgres:16-alpine
-    container_name: automation-hub-db
+    container_name: automation-hub-db-dev
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
-      POSTGRES_DB: ${DB_NAME:-automacao_db}
+      POSTGRES_USER: ${DB_DEV_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_DEV_PASSWORD:-dev_password_segura}
+      POSTGRES_DB: ${DB_DEV_NAME:-automacao_db_dev}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
+    # Opcional: expor porta para você conectar do seu PC
+    ports:
+      - "5433:5432"   # host:container (mude se já usar 5433 no VPS)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_DEV_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Backend API
+  # Backend API (dev)
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: automation-hub
+    container_name: automation-hub-dev
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/automacao_db
-      SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
-      DEBUG: "false"
+      DATABASE_URL: postgresql://${DB_DEV_USER:-postgres}:${DB_DEV_PASSWORD:-dev_password_segura}@db:5432/${DB_DEV_NAME:-automacao_db_dev}
+      SECRET_KEY: ${DEV_SECRET_KEY:-uma_secret_key_dev_bem_grande}
+      DEBUG: "true"          # Em dev, ligamos DEBUG
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
     depends_on:
       db:
@@ -35,9 +38,10 @@ services:
       - "8000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.automation-hub.rule=Host(`automacao.logtudo.com.br`)
-      - traefik.http.routers.automation-hub.entrypoints=http,https
-      - traefik.http.services.automation-hub.loadbalancer.server.port=8000
+      # Use um host diferente para não bater com produção
+      - traefik.http.routers.automation-hub-dev.rule=Host(`b8o0wkc0c0kgw8g0wgwsww0s.72.61.25.133.sslip.io`)
+      - traefik.http.routers.automation-hub-dev.entrypoints=http,https
+      - traefik.http.services.automation-hub-dev.loadbalancer.server.port=8000
       - coolify.managed=true
       - coolify.proxy=true
     healthcheck:
@@ -47,4 +51,4 @@ services:
       retries: 3
 
 volumes:
-  postgres_data:
+  postgres_data_dev:
