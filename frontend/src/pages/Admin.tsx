@@ -10,6 +10,15 @@ import {
 
 type Tab = 'automations' | 'users' | 'sectors'
 
+type HelpType = 'pdf' | 'video'
+
+interface AutomationConfig {
+  help_url?: string
+  help_type?: HelpType
+  help_title?: string
+  [key: string]: any
+}
+
 interface Automation {
   id: number
   title: string
@@ -18,6 +27,7 @@ interface Automation {
   icon: string
   is_active: boolean
   sectors: { id: number; name: string }[]
+  config?: AutomationConfig
 }
 
 interface User {
@@ -42,6 +52,15 @@ interface Sector {
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
   const str = value || ''
   return end !== undefined ? str.substring(start, end) : str.substring(start)
+}
+
+const isValidHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 export default function Admin() {
@@ -159,7 +178,7 @@ export default function Admin() {
     setFormData({})
     // Defaults
     if (activeTab === 'automations') {
-      setFormData({ is_active: true, sector_ids: [] })
+      setFormData({ is_active: true, sector_ids: [], help_url: '', help_type: '' })
     } else if (activeTab === 'users') {
       setFormData({ is_active: true, is_admin: false, role: 'user', automation_ids: [] })
     }
@@ -169,8 +188,13 @@ export default function Admin() {
   const handleOpenEdit = (item: any) => {
     setEditingId(item.id)
     if (activeTab === 'automations') {
+      const config = item.config || {}
       setFormData({
         ...item,
+        config,
+        help_url: config.help_url || '',
+        help_type: config.help_type || '',
+        help_title: config.help_title || '',
         sector_ids: item.sectors?.map((s: any) => s.id) || []
       })
     } else {
@@ -200,8 +224,44 @@ export default function Admin() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (activeTab === 'automations') {
-      if (editingId) updateAutomation.mutate({ id: editingId, data: formData })
-      else createAutomation.mutate(formData)
+      const helpUrl = (formData.help_url || '').trim()
+      const helpType = formData.help_type as HelpType | ''
+      const helpTitle = (formData.help_title || '').trim()
+
+      if (helpUrl && !isValidHttpUrl(helpUrl)) {
+        alert('A URL de Dúvidas deve começar com http:// ou https://')
+        return
+      }
+
+      if (helpUrl && !helpType) {
+        alert('Selecione o tipo de dúvidas (PDF ou Vídeo).')
+        return
+      }
+
+      const {
+        help_url: _helpUrl,
+        help_type: _helpType,
+        help_title: _helpTitle,
+        ...automationPayload
+      } = formData
+
+      const nextConfig: AutomationConfig = { ...(automationPayload.config || {}) }
+
+      if (helpUrl) {
+        nextConfig.help_url = helpUrl
+        nextConfig.help_type = helpType as HelpType
+        if (helpTitle) nextConfig.help_title = helpTitle
+        else delete nextConfig.help_title
+      } else {
+        delete nextConfig.help_url
+        delete nextConfig.help_type
+        delete nextConfig.help_title
+      }
+
+      automationPayload.config = nextConfig
+
+      if (editingId) updateAutomation.mutate({ id: editingId, data: automationPayload })
+      else createAutomation.mutate(automationPayload)
     } else if (activeTab === 'users') {
       const data = { ...formData }
       if (!data.password) delete data.password // Don't send empty password on update
@@ -668,6 +728,41 @@ export default function Admin() {
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={formData.icon || ''}
                       onChange={e => setFormData({...formData, icon: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">URL de Dúvidas</label>
+                    <input
+                      type="url"
+                      pattern="https?://.+"
+                      placeholder="https://..."
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.help_url || ''}
+                      onChange={e => setFormData({...formData, help_url: e.target.value})}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Link para PDF ou vídeo de instrução (opcional).</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Dúvidas</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.help_type || ''}
+                      required={Boolean((formData.help_url || '').trim())}
+                      onChange={e => setFormData({...formData, help_type: e.target.value})}
+                    >
+                      <option value="">Selecione (opcional)</option>
+                      <option value="pdf">PDF</option>
+                      <option value="video">Vídeo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Título de Dúvidas (opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Manual rápido"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.help_title || ''}
+                      onChange={e => setFormData({...formData, help_title: e.target.value})}
                     />
                   </div>
                   <div>
