@@ -60,6 +60,7 @@ interface AuditLogItem {
   user_name: string
   user_email: string
   user_sector_id: number
+  user_sector_name: string
   automation_id: number
   automation_title: string
   occurred_at: string
@@ -938,7 +939,7 @@ export default function Admin() {
                   <tr>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Data/Hora</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Usuário</th>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor (ID)</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Automação</th>
                   </tr>
                 </thead>
@@ -961,7 +962,9 @@ export default function Admin() {
                           <div className="font-medium text-slate-900">{log.user_name}</div>
                           <div className="text-slate-500">{log.user_email} (ID {log.user_id})</div>
                         </td>
-                        <td className="px-6 py-4 text-slate-700 text-sm">{log.user_sector_id}</td>
+                        <td className="px-6 py-4 text-slate-700 text-sm">
+                          {log.user_sector_name} (ID {log.user_sector_id})
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="font-medium text-slate-900">{log.automation_title}</div>
                           <div className="text-slate-500">ID {log.automation_id}</div>

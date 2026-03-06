@@ -32,6 +32,7 @@ def _map_audit_log(row: AuditLog) -> AuditLogResponse:
         user_name=row.user.full_name,
         user_email=row.user.email,
         user_sector_id=row.user_sector_id,
+        user_sector_name=row.user.sector.name if row.user and row.user.sector else "N/A",
         automation_id=row.automation_id,
         automation_title=row.automation.title,
         occurred_at=row.occurred_at,

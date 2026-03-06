@@ -174,6 +174,7 @@ class AuditLogResponse(BaseModel):
     user_name: str
     user_email: str
     user_sector_id: int
+    user_sector_name: str
     automation_id: int
     automation_title: str
     occurred_at: datetime
