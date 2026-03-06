@@ -63,3 +63,16 @@ export const sectorsApi = {
   update: (id: number, data: any) => api.put(`/sectors/${id}`, data),
   delete: (id: number) => api.delete(`/sectors/${id}`),
 }
+
+// Audit API
+export const auditApi = {
+  trackAccess: (automation_id: number) => api.post('/audit/access', { automation_id }),
+  getLogs: (params: {
+    start_date?: string
+    end_date?: string
+    user_id?: number
+    automation_id?: number
+    page?: number
+    page_size?: number
+  }) => api.get('/audit/logs', { params }),
+}

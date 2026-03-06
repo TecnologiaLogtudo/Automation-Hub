@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { automationsApi } from '../services/api'
+import { auditApi, automationsApi } from '../services/api'
 import { 
   Bot, Search, LogOut, Settings, ExternalLink, HelpCircle, FileText, Video, 
   LayoutGrid, ChevronRight
@@ -54,9 +54,10 @@ const safeSubstring = (value: string | undefined | null, start = 0, end?: number
 
 export default function Dashboard() {
   const { user, logout } = useAuthStore()
-  const canAccessManagement = Boolean(user?.is_admin || user?.role === 'sector_admin')
+  const canAccessManagement = Boolean(user?.is_admin || user?.role === 'sector_admin' || user?.role === 'manager')
   const isGlobalAdmin = Boolean(user?.is_admin)
   const isSectorAdmin = Boolean(user?.role === 'sector_admin' && !user?.is_admin)
+  const isManager = Boolean(user?.role === 'manager' && !user?.is_admin)
   const [searchQuery, setSearchQuery] = useState('')
 
   const { data: automations = [], isLoading } = useQuery<Automation[]>({
@@ -80,8 +81,11 @@ export default function Dashboard() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
-  const openAutomation = (url: string) => {
-    openInNewTab(url)
+  const openAutomation = (automation: Automation) => {
+    auditApi.trackAccess(automation.id).catch(() => {
+      // Tracking is non-blocking by design.
+    })
+    openInNewTab(automation.target_url)
   }
 
   const openHelp = (event: React.MouseEvent<HTMLButtonElement>, url: string) => {
@@ -156,6 +160,8 @@ export default function Dashboard() {
           <p className="text-slate-600 mt-1">
             {isGlobalAdmin
               ? 'Você está no modo Administrador, com visão global das automações.'
+              : isManager
+                ? 'Você está no modo Gerente, com visão global dos logs de auditoria em Gestão.'
               : isSectorAdmin
                 ? 'Você está no modo Chefe de Setor. Use Gestão para administrar os usuários do seu setor.'
                 : 'Aqui estão as automações disponíveis para o seu setor'}
@@ -210,7 +216,7 @@ export default function Dashboard() {
                   key={automation.id}
                   className="automation-card bg-white rounded-2xl border border-slate-200 p-6 cursor-pointer animate-fade-in"
                   style={{ animationDelay: `${index * 50}ms` }}
-                  onClick={() => openAutomation(automation.target_url)}
+                  onClick={() => openAutomation(automation)}
                 >
                   {/* Icon */}
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center text-blue-600 mb-4">

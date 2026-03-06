@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
@@ -65,6 +65,7 @@ class User(Base):
         secondary=user_automation_permissions,
         back_populates="users_with_access"
     )
+    audit_logs = relationship("AuditLog", back_populates="user")
 
     @hybrid_property
     def name(self) -> str:
@@ -101,6 +102,7 @@ class Automation(Base):
         secondary=user_automation_permissions,
         back_populates="extra_automations"
     )
+    audit_logs = relationship("AuditLog", back_populates="automation")
 
     @hybrid_property
     def name(self) -> str:
@@ -109,3 +111,22 @@ class Automation(Base):
     @hybrid_property
     def status(self) -> str:
         return "active" if self.is_active else "inactive"
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("ix_audit_logs_occurred_at", "occurred_at"),
+        Index("ix_audit_logs_user_id", "user_id"),
+        Index("ix_audit_logs_user_sector_id", "user_sector_id"),
+        Index("ix_audit_logs_automation_id", "automation_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
+    automation_id = Column(Integer, ForeignKey("automations.id"), nullable=False)
+    occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="audit_logs")
+    automation = relationship("Automation", back_populates="audit_logs")
