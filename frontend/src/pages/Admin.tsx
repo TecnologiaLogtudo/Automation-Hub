@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
@@ -65,8 +65,11 @@ const isValidHttpUrl = (value: string) => {
 
 export default function Admin() {
   const { user, logout } = useAuthStore()
+  const isGlobalAdmin = Boolean(user?.is_admin)
+  const isSectorAdmin = Boolean(user && !user.is_admin && user.role === 'sector_admin')
+  const profileLabel = isGlobalAdmin ? 'Administrador' : isSectorAdmin ? 'Chefe de Setor' : 'Usuário'
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<Tab>('automations')
+  const [activeTab, setActiveTab] = useState<Tab>(() => (isGlobalAdmin ? 'automations' : 'users'))
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<any>({})
@@ -77,6 +80,12 @@ export default function Admin() {
     onConfirm: () => void
     type: 'danger' | 'warning'
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {}, type: 'danger' })
+
+  useEffect(() => {
+    if (isSectorAdmin && activeTab !== 'users') {
+      setActiveTab('users')
+    }
+  }, [activeTab, isSectorAdmin])
 
   // Queries
   const { data: automations = [], isLoading: loadingAutomations } = useQuery<Automation[]>({
@@ -163,11 +172,13 @@ export default function Admin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sectors'] }),
   })
 
-  const tabs = [
-    { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
-    { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
-    { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
-  ]
+  const tabs = isSectorAdmin
+    ? [{ id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length }]
+    : [
+        { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
+        { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
+        { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
+      ]
 
   const handleLogout = () => {
     logout()
@@ -180,7 +191,13 @@ export default function Admin() {
     if (activeTab === 'automations') {
       setFormData({ is_active: true, sector_ids: [], help_url: '', help_type: '' })
     } else if (activeTab === 'users') {
-      setFormData({ is_active: true, is_admin: false, role: 'user', automation_ids: [] })
+      setFormData({
+        is_active: true,
+        is_admin: false,
+        role: 'user',
+        automation_ids: [],
+        sector_id: isSectorAdmin ? user?.sector_id : undefined
+      })
     }
     setIsModalOpen(true)
   }
@@ -200,6 +217,8 @@ export default function Admin() {
     } else {
       setFormData({ 
         ...item,
+        is_admin: isSectorAdmin ? false : item.is_admin,
+        sector_id: isSectorAdmin ? user?.sector_id : item.sector_id,
         automation_ids: item.extra_automations?.map((a: any) => a.id) || []
       })
     }
@@ -264,9 +283,13 @@ export default function Admin() {
       else createAutomation.mutate(automationPayload)
     } else if (activeTab === 'users') {
       const data = { ...formData }
+      if (isSectorAdmin) {
+        data.is_admin = false
+        data.sector_id = user?.sector_id
+      }
       if (!data.password) delete data.password // Don't send empty password on update
       if (editingId) updateUser.mutate({ id: editingId, data })
-      else createUser.mutate(formData)
+      else createUser.mutate(data)
     } else if (activeTab === 'sectors') {
       if (editingId) updateSector.mutate({ id: editingId, data: formData })
       else createSector.mutate(formData)
@@ -299,7 +322,7 @@ export default function Admin() {
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">{user?.full_name}</p>
-                  <p className="text-xs text-slate-500">Administrador</p>
+                  <p className="text-xs text-slate-500">{profileLabel}</p>
                 </div>
                 <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center text-white font-medium">
                   {safeSubstring(user?.full_name, 0, 1).toUpperCase()}
@@ -352,7 +375,7 @@ export default function Admin() {
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Automations Tab */}
-        {activeTab === 'automations' && (
+        {!isSectorAdmin && activeTab === 'automations' && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Gerenciar Automações</h2>
@@ -529,10 +552,12 @@ export default function Admin() {
                             userItem.role === 'manager' ? 'bg-orange-100 text-orange-700' :
                             userItem.role === 'analyst' ? 'bg-cyan-100 text-cyan-700' :
                             userItem.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                            userItem.role === 'sector_admin' ? 'bg-indigo-100 text-indigo-700' :
                             'bg-slate-100 text-slate-600'
                           }`}>
                             {userItem.role === 'manager' ? 'Gerente' : 
-                             userItem.role === 'analyst' ? 'Analista' : userItem.role}
+                             userItem.role === 'analyst' ? 'Analista' :
+                             userItem.role === 'sector_admin' ? 'Chefe de Setor' : userItem.role}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -609,7 +634,7 @@ export default function Admin() {
         )}
 
         {/* Sectors Tab */}
-        {activeTab === 'sectors' && (
+        {!isSectorAdmin && activeTab === 'sectors' && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Gerenciar Setores</h2>
@@ -831,15 +856,22 @@ export default function Admin() {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Setor</label>
                     <select
                       required
+                      disabled={isSectorAdmin}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.sector_id || ''}
+                      value={formData.sector_id || (isSectorAdmin ? user?.sector_id || '' : '')}
                       onChange={e => setFormData({...formData, sector_id: parseInt(e.target.value)})}
                     >
-                      <option value="">Selecione um setor</option>
-                      {(sectors || []).map(s => (
+                      {!isSectorAdmin && <option value="">Selecione um setor</option>}
+                      {(isSectorAdmin
+                        ? (sectors || []).filter(s => s.id === user?.sector_id)
+                        : (sectors || [])
+                      ).map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>
+                    {isSectorAdmin && (
+                      <p className="text-xs text-slate-500 mt-1">Setor bloqueado para chefe de setor.</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Função</label>
@@ -851,6 +883,7 @@ export default function Admin() {
                       <option value="user">Usuário Padrão</option>
                       <option value="manager">Gerente (Vê tudo)</option>
                       <option value="analyst">Analista de Dados (Vê tudo)</option>
+                      <option value="sector_admin">Chefe de Setor</option>
                     </select>
                   </div>
                   <div>
@@ -903,15 +936,17 @@ export default function Admin() {
                     </select>
                     <p className="text-xs text-slate-500 mt-1">Selecione na lista para conceder acesso. Clique no X para revogar.</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="is_admin"
-                      checked={formData.is_admin || false}
-                      onChange={e => setFormData({...formData, is_admin: e.target.checked})}
-                    />
-                    <label htmlFor="is_admin" className="text-sm font-medium text-slate-700">Administrador</label>
-                  </div>
+                  {!isSectorAdmin && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="is_admin"
+                        checked={formData.is_admin || false}
+                        onChange={e => setFormData({...formData, is_admin: e.target.checked})}
+                      />
+                      <label htmlFor="is_admin" className="text-sm font-medium text-slate-700">Administrador</label>
+                    </div>
+                  )}
                 </>
               )}
 

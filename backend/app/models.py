@@ -49,7 +49,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
-    role = Column(String(50), default="user")  # user, manager, analyst, admin
+    role = Column(String(50), default="user")  # user, manager, analyst, sector_admin, admin
     is_active = Column(Boolean, default=True)
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
