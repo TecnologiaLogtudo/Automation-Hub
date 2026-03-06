@@ -81,3 +81,18 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="Admin privileges required"
         )
     return current_user
+
+
+def is_sector_admin(user: User) -> bool:
+    """Check whether user is a local sector admin (not global admin)."""
+    return not user.is_admin and user.role == "sector_admin"
+
+
+def get_current_user_manager(current_user: User = Depends(get_current_user)) -> User:
+    """Dependency to ensure current user can manage users (admin or sector_admin)."""
+    if current_user.is_admin or is_sector_admin(current_user):
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="User management privileges required"
+    )

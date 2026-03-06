@@ -43,7 +43,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
   
-  if (!user?.is_admin) {
+  const canAccessAdmin = user?.is_admin || user?.role === 'sector_admin'
+
+  if (!canAccessAdmin) {
     return <Navigate to="/" replace />
   }
   

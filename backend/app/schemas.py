@@ -1,6 +1,9 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict, computed_field, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+
+
+VALID_USER_ROLES = {"user", "manager", "analyst", "admin", "sector_admin"}
 
 
 # ============ Sector Schemas ============
@@ -47,6 +50,13 @@ class UserBase(BaseModel):
     role: str = "user"
     sector_id: int
 
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in VALID_USER_ROLES:
+            raise ValueError(f"Invalid role. Allowed: {', '.join(sorted(VALID_USER_ROLES))}")
+        return v
+
 
 class UserCreate(UserBase):
     password: str
@@ -64,6 +74,13 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     automation_ids: Optional[List[int]] = None
     preferences: Optional[dict] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_USER_ROLES:
+            raise ValueError(f"Invalid role. Allowed: {', '.join(sorted(VALID_USER_ROLES))}")
+        return v
 
 
 class UserResponse(BaseModel):
