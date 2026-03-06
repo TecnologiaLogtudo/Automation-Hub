@@ -2,12 +2,20 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import AuditLog, Automation, User
-from app.schemas import AuditAccessCreate, AuditLogResponse, PaginatedAuditLogsResponse
+from app.models import AuditLog, Automation, Sector, User
+from app.schemas import (
+    AuditAccessCreate,
+    AuditAnalyticsResponse,
+    AuditLogResponse,
+    AnalyticsCountItem,
+    AnalyticsHourItem,
+    PaginatedAuditLogsResponse,
+)
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 
@@ -125,4 +133,105 @@ def get_audit_logs(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/analytics", response_model=AuditAnalyticsResponse)
+def get_audit_analytics(
+    start_date: Optional[datetime] = Query(default=None),
+    end_date: Optional[datetime] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return aggregated analytics for admins and managers."""
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date must be less than or equal to end_date",
+        )
+
+    can_view_analytics = current_user.is_admin or current_user.role == "manager"
+    if not can_view_analytics:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Analytics access denied",
+        )
+
+    base_query = db.query(AuditLog)
+    if start_date:
+        base_query = base_query.filter(AuditLog.occurred_at >= start_date)
+    if end_date:
+        base_query = base_query.filter(AuditLog.occurred_at <= end_date)
+
+    total_accesses = base_query.count()
+
+    top_automations_rows = (
+        db.query(
+            AuditLog.automation_id,
+            Automation.title,
+            func.count(AuditLog.id).label("access_count"),
+        )
+        .join(Automation, Automation.id == AuditLog.automation_id)
+    )
+    if start_date:
+        top_automations_rows = top_automations_rows.filter(AuditLog.occurred_at >= start_date)
+    if end_date:
+        top_automations_rows = top_automations_rows.filter(AuditLog.occurred_at <= end_date)
+    top_automations_rows = (
+        top_automations_rows.group_by(AuditLog.automation_id, Automation.title)
+        .order_by(func.count(AuditLog.id).desc())
+        .limit(10)
+        .all()
+    )
+
+    top_sectors_rows = (
+        db.query(
+            AuditLog.user_sector_id,
+            Sector.name,
+            func.count(AuditLog.id).label("access_count"),
+        )
+        .join(Sector, Sector.id == AuditLog.user_sector_id)
+    )
+    if start_date:
+        top_sectors_rows = top_sectors_rows.filter(AuditLog.occurred_at >= start_date)
+    if end_date:
+        top_sectors_rows = top_sectors_rows.filter(AuditLog.occurred_at <= end_date)
+    top_sectors_rows = (
+        top_sectors_rows.group_by(AuditLog.user_sector_id, Sector.name)
+        .order_by(func.count(AuditLog.id).desc())
+        .limit(10)
+        .all()
+    )
+
+    peak_hours_rows = db.query(
+        func.extract("hour", AuditLog.occurred_at).label("hour"),
+        func.count(AuditLog.id).label("access_count"),
+    )
+    if start_date:
+        peak_hours_rows = peak_hours_rows.filter(AuditLog.occurred_at >= start_date)
+    if end_date:
+        peak_hours_rows = peak_hours_rows.filter(AuditLog.occurred_at <= end_date)
+    peak_hours_rows = (
+        peak_hours_rows.group_by(func.extract("hour", AuditLog.occurred_at))
+        .order_by(func.extract("hour", AuditLog.occurred_at))
+        .all()
+    )
+
+    hour_map = {int(row.hour): int(row.access_count) for row in peak_hours_rows}
+    peak_hours = [
+        AnalyticsHourItem(hour=hour, access_count=hour_map.get(hour, 0))
+        for hour in range(24)
+    ]
+
+    return AuditAnalyticsResponse(
+        total_accesses=int(total_accesses),
+        top_automations=[
+            AnalyticsCountItem(id=int(row.automation_id), label=row.title, access_count=int(row.access_count))
+            for row in top_automations_rows
+        ],
+        top_sectors=[
+            AnalyticsCountItem(id=int(row.user_sector_id), label=row.name, access_count=int(row.access_count))
+            for row in top_sectors_rows
+        ],
+        peak_hours=peak_hours,
     )

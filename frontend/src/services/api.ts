@@ -75,4 +75,6 @@ export const auditApi = {
     page?: number
     page_size?: number
   }) => api.get('/audit/logs', { params }),
+  getAnalytics: (params: { start_date?: string; end_date?: string }) =>
+    api.get('/audit/analytics', { params }),
 }
