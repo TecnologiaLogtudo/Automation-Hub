@@ -185,3 +185,21 @@ class PaginatedAuditLogsResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class AnalyticsCountItem(BaseModel):
+    id: int
+    label: str
+    access_count: int
+
+
+class AnalyticsHourItem(BaseModel):
+    hour: int
+    access_count: int
+
+
+class AuditAnalyticsResponse(BaseModel):
+    total_accesses: int
+    top_automations: List[AnalyticsCountItem]
+    top_sectors: List[AnalyticsCountItem]
+    peak_hours: List[AnalyticsHourItem]

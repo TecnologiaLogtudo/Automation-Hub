@@ -5,10 +5,10 @@ import { useAuthStore } from '../stores/authStore'
 import { auditApi, automationsApi, usersApi, sectorsApi } from '../services/api'
 import { 
   Bot, Users, Building2, Plus, Trash2, Edit, 
-  AlertCircle, CheckCircle, LogOut, X, Power, Shield
+  AlertCircle, CheckCircle, LogOut, X, Power, Shield, BarChart3
 } from 'lucide-react'
 
-type Tab = 'automations' | 'users' | 'sectors' | 'audit'
+type Tab = 'automations' | 'users' | 'sectors' | 'audit' | 'analytics'
 
 type HelpType = 'pdf' | 'video'
 
@@ -73,6 +73,24 @@ interface PaginatedAuditLogs {
   page_size: number
 }
 
+interface AnalyticsCountItem {
+  id: number
+  label: string
+  access_count: number
+}
+
+interface AnalyticsHourItem {
+  hour: number
+  access_count: number
+}
+
+interface AuditAnalytics {
+  total_accesses: number
+  top_automations: AnalyticsCountItem[]
+  top_sectors: AnalyticsCountItem[]
+  peak_hours: AnalyticsHourItem[]
+}
+
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
   const str = value || ''
   return end !== undefined ? str.substring(start, end) : str.substring(start)
@@ -120,7 +138,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (isGlobalAdmin) return 'automations'
     if (isSectorAdmin) return 'users'
-    if (isManager) return 'audit'
+    if (isManager) return 'analytics'
     return 'users'
   })
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -133,6 +151,10 @@ export default function Admin() {
     userId: '',
     automationId: '',
   })
+  const [analyticsFilters, setAnalyticsFilters] = useState({
+    startDate: '',
+    endDate: '',
+  })
   const [auditPage, setAuditPage] = useState(1)
   const auditPageSize = 50
   const [confirmModal, setConfirmModal] = useState<{
@@ -144,8 +166,8 @@ export default function Admin() {
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {}, type: 'danger' })
 
   useEffect(() => {
-    if (isManager && activeTab !== 'audit') {
-      setActiveTab('audit')
+    if (isManager && !['audit', 'analytics'].includes(activeTab)) {
+      setActiveTab('analytics')
       return
     }
     if (isSectorAdmin && !['users', 'audit'].includes(activeTab)) {
@@ -183,6 +205,15 @@ export default function Admin() {
       page_size: auditPageSize,
     }).then(res => res.data),
     enabled: Boolean(isGlobalAdmin || isSectorAdmin || isManager),
+  })
+
+  const { data: auditAnalytics, isLoading: loadingAuditAnalytics } = useQuery<AuditAnalytics>({
+    queryKey: ['audit-analytics', analyticsFilters],
+    queryFn: () => auditApi.getAnalytics({
+      start_date: analyticsFilters.startDate ? `${analyticsFilters.startDate}T00:00:00` : undefined,
+      end_date: analyticsFilters.endDate ? `${analyticsFilters.endDate}T23:59:59` : undefined,
+    }).then(res => res.data),
+    enabled: Boolean(isGlobalAdmin || isManager),
   })
 
   // Mutations
@@ -303,7 +334,10 @@ export default function Admin() {
   })
 
   const tabs = isManager
-    ? [{ id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 }]
+    ? [
+        { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3, count: auditAnalytics?.total_accesses || 0 },
+        { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
+      ]
     : isSectorAdmin
       ? [
           { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
@@ -313,6 +347,7 @@ export default function Admin() {
           { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
           { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
           { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
+          { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3, count: auditAnalytics?.total_accesses || 0 },
           { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
         ]
 
@@ -436,6 +471,12 @@ export default function Admin() {
 
   const auditItems = auditLogs?.items || []
   const auditTotalPages = Math.max(1, Math.ceil((auditLogs?.total || 0) / auditPageSize))
+  const topAutomations = auditAnalytics?.top_automations || []
+  const topSectors = auditAnalytics?.top_sectors || []
+  const peakHours = auditAnalytics?.peak_hours || []
+  const maxAutomationAccess = Math.max(1, ...topAutomations.map((item) => item.access_count))
+  const maxSectorAccess = Math.max(1, ...topSectors.map((item) => item.access_count))
+  const maxHourAccess = Math.max(1, ...peakHours.map((item) => item.access_count))
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -854,6 +895,128 @@ export default function Admin() {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-slate-900">Dashboard de Métricas</h2>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Data inicial</label>
+                  <input
+                    type="date"
+                    value={analyticsFilters.startDate}
+                    onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Data final</label>
+                  <input
+                    type="date"
+                    value={analyticsFilters.endDate}
+                    onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAnalyticsFilters({ startDate: '', endDate: '' })}
+                  className="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50"
+                >
+                  Limpar filtro
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                <p className="text-sm text-slate-500">Total de acessos</p>
+                <p className="text-3xl font-bold text-slate-900 mt-2">{auditAnalytics?.total_accesses || 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 lg:col-span-2">
+                <p className="text-sm text-slate-500 mb-2">Horário de pico</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  {peakHours.reduce((best, current) => current.access_count > best.access_count ? current : best, { hour: 0, access_count: 0 }).hour}:00
+                </p>
+              </div>
+            </div>
+
+            {loadingAuditAnalytics ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">
+                Carregando métricas...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Automações</h3>
+                  <div className="space-y-3">
+                    {topAutomations.length === 0 ? (
+                      <p className="text-sm text-slate-500">Sem dados no período.</p>
+                    ) : topAutomations.map((item) => (
+                      <div key={`auto-${item.id}`}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-slate-700 truncate pr-2">{item.label}</span>
+                          <span className="font-semibold text-slate-900">{item.access_count}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500"
+                            style={{ width: `${(item.access_count / maxAutomationAccess) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4">Setores Mais Ativos</h3>
+                  <div className="space-y-3">
+                    {topSectors.length === 0 ? (
+                      <p className="text-sm text-slate-500">Sem dados no período.</p>
+                    ) : topSectors.map((item) => (
+                      <div key={`sector-${item.id}`}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-slate-700 truncate pr-2">{item.label}</span>
+                          <span className="font-semibold text-slate-900">{item.access_count}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500"
+                            style={{ width: `${(item.access_count / maxSectorAccess) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 xl:col-span-2">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4">Horários de Pico</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                    {peakHours.map((item) => (
+                      <div key={`hour-${item.hour}`} className="border border-slate-100 rounded-lg p-2">
+                        <p className="text-[11px] text-slate-500">{String(item.hour).padStart(2, '0')}:00</p>
+                        <div className="h-12 bg-slate-100 rounded mt-1 flex items-end overflow-hidden">
+                          <div
+                            className="w-full bg-violet-500"
+                            style={{ height: `${(item.access_count / maxHourAccess) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-900 font-semibold mt-1">{item.access_count}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
