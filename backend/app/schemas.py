@@ -161,3 +161,26 @@ class DashboardStats(BaseModel):
     total_automations: int
     total_users: int
     total_sectors: int
+
+
+# ============ Audit Schemas ============
+class AuditAccessCreate(BaseModel):
+    automation_id: int
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    user_email: str
+    user_sector_id: int
+    automation_id: int
+    automation_title: str
+    occurred_at: datetime
+
+
+class PaginatedAuditLogsResponse(BaseModel):
+    items: List[AuditLogResponse]
+    total: int
+    page: int
+    page_size: int

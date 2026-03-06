@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { automationsApi, usersApi, sectorsApi } from '../services/api'
+import { auditApi, automationsApi, usersApi, sectorsApi } from '../services/api'
 import { 
   Bot, Users, Building2, Plus, Trash2, Edit, 
-  AlertCircle, CheckCircle, LogOut, X, Power
+  AlertCircle, CheckCircle, LogOut, X, Power, Shield
 } from 'lucide-react'
 
-type Tab = 'automations' | 'users' | 'sectors'
+type Tab = 'automations' | 'users' | 'sectors' | 'audit'
 
 type HelpType = 'pdf' | 'video'
 
@@ -54,6 +54,24 @@ interface FeedbackMessage {
   message: string
 }
 
+interface AuditLogItem {
+  id: number
+  user_id: number
+  user_name: string
+  user_email: string
+  user_sector_id: number
+  automation_id: number
+  automation_title: string
+  occurred_at: string
+}
+
+interface PaginatedAuditLogs {
+  items: AuditLogItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
   const str = value || ''
   return end !== undefined ? str.substring(start, end) : str.substring(start)
@@ -89,13 +107,33 @@ export default function Admin() {
   const { user, logout } = useAuthStore()
   const isGlobalAdmin = Boolean(user?.is_admin)
   const isSectorAdmin = Boolean(user && !user.is_admin && user.role === 'sector_admin')
-  const profileLabel = isGlobalAdmin ? 'Administrador' : isSectorAdmin ? 'Chefe de Setor' : 'Usuário'
+  const isManager = Boolean(user && !user.is_admin && user.role === 'manager')
+  const profileLabel = isGlobalAdmin
+    ? 'Administrador'
+    : isSectorAdmin
+      ? 'Chefe de Setor'
+      : isManager
+        ? 'Gerente'
+        : 'Usuário'
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<Tab>(() => (isGlobalAdmin ? 'automations' : 'users'))
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (isGlobalAdmin) return 'automations'
+    if (isSectorAdmin) return 'users'
+    if (isManager) return 'audit'
+    return 'users'
+  })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<any>({})
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null)
+  const [auditFilters, setAuditFilters] = useState({
+    startDate: '',
+    endDate: '',
+    userId: '',
+    automationId: '',
+  })
+  const [auditPage, setAuditPage] = useState(1)
+  const auditPageSize = 50
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean
     title: string
@@ -105,25 +143,45 @@ export default function Admin() {
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {}, type: 'danger' })
 
   useEffect(() => {
-    if (isSectorAdmin && activeTab !== 'users') {
+    if (isManager && activeTab !== 'audit') {
+      setActiveTab('audit')
+      return
+    }
+    if (isSectorAdmin && !['users', 'audit'].includes(activeTab)) {
       setActiveTab('users')
     }
-  }, [activeTab, isSectorAdmin])
+  }, [activeTab, isSectorAdmin, isManager])
 
   // Queries
   const { data: automations = [], isLoading: loadingAutomations } = useQuery<Automation[]>({
     queryKey: ['automations-admin'],
     queryFn: () => automationsApi.getAll().then(res => res.data),
+    enabled: !isManager,
   })
 
   const { data: users = [], isLoading: loadingUsers } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: () => usersApi.getAll().then(res => res.data),
+    enabled: !isManager,
   })
 
   const { data: sectors = [], isLoading: loadingSectors } = useQuery<Sector[]>({
     queryKey: ['sectors'],
     queryFn: () => sectorsApi.getAll().then(res => res.data),
+    enabled: !isManager,
+  })
+
+  const { data: auditLogs, isLoading: loadingAuditLogs } = useQuery<PaginatedAuditLogs>({
+    queryKey: ['audit-logs', auditFilters, auditPage, auditPageSize],
+    queryFn: () => auditApi.getLogs({
+      start_date: auditFilters.startDate ? `${auditFilters.startDate}T00:00:00` : undefined,
+      end_date: auditFilters.endDate ? `${auditFilters.endDate}T23:59:59` : undefined,
+      user_id: auditFilters.userId ? Number(auditFilters.userId) : undefined,
+      automation_id: auditFilters.automationId ? Number(auditFilters.automationId) : undefined,
+      page: auditPage,
+      page_size: auditPageSize,
+    }).then(res => res.data),
+    enabled: Boolean(isGlobalAdmin || isSectorAdmin || isManager),
   })
 
   // Mutations
@@ -243,13 +301,19 @@ export default function Admin() {
     },
   })
 
-  const tabs = isSectorAdmin
-    ? [{ id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length }]
-    : [
-        { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
-        { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
-        { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
-      ]
+  const tabs = isManager
+    ? [{ id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 }]
+    : isSectorAdmin
+      ? [
+          { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
+          { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
+        ]
+      : [
+          { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
+          { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
+          { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
+          { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
+        ]
 
   const handleLogout = () => {
     logout()
@@ -368,6 +432,9 @@ export default function Admin() {
       else createSector.mutate(formData)
     }
   }
+
+  const auditItems = auditLogs?.items || []
+  const auditTotalPages = Math.max(1, Math.ceil((auditLogs?.total || 0) / auditPageSize))
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -785,6 +852,152 @@ export default function Admin() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Audit Tab */}
+        {activeTab === 'audit' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-slate-900">Logs de Auditoria</h2>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Data inicial</label>
+                  <input
+                    type="date"
+                    value={auditFilters.startDate}
+                    onChange={(e) => {
+                      setAuditPage(1)
+                      setAuditFilters({ ...auditFilters, startDate: e.target.value })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Data final</label>
+                  <input
+                    type="date"
+                    value={auditFilters.endDate}
+                    onChange={(e) => {
+                      setAuditPage(1)
+                      setAuditFilters({ ...auditFilters, endDate: e.target.value })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">ID do usuário</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={auditFilters.userId}
+                    onChange={(e) => {
+                      setAuditPage(1)
+                      setAuditFilters({ ...auditFilters, userId: e.target.value })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                    placeholder="Ex: 12"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">ID da automação</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={auditFilters.automationId}
+                    onChange={(e) => {
+                      setAuditPage(1)
+                      setAuditFilters({ ...auditFilters, automationId: e.target.value })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                    placeholder="Ex: 7"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditPage(1)
+                      setAuditFilters({ startDate: '', endDate: '', userId: '', automationId: '' })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Data/Hora</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Usuário</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor (ID)</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Automação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {loadingAuditLogs ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">Carregando...</td>
+                    </tr>
+                  ) : auditItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum log encontrado</td>
+                    </tr>
+                  ) : (
+                    auditItems.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 text-slate-700 text-sm">
+                          {new Date(log.occurred_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="font-medium text-slate-900">{log.user_name}</div>
+                          <div className="text-slate-500">{log.user_email} (ID {log.user_id})</div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-700 text-sm">{log.user_sector_id}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="font-medium text-slate-900">{log.automation_title}</div>
+                          <div className="text-slate-500">ID {log.automation_id}</div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-slate-600">
+                Total: {auditLogs?.total || 0} registros
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                  disabled={auditPage <= 1}
+                  className="px-3 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                >
+                  Anterior
+                </button>
+                <span className="text-sm text-slate-700">
+                  Página {auditPage} de {auditTotalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAuditPage((p) => Math.min(auditTotalPages, p + 1))}
+                  disabled={auditPage >= auditTotalPages}
+                  className="px-3 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                >
+                  Próxima
+                </button>
+              </div>
             </div>
           </div>
         )}

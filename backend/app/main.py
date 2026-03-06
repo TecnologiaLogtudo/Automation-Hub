@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.config import APP_NAME, DEBUG
 from app.database import engine, Base
-from app.routers import auth, automations, users, sectors
+from app.routers import auth, automations, users, sectors, audit
 from app.seed import seed_initial_data
 
 
@@ -78,6 +78,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(automations.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(sectors.router, prefix="/api/v1")
+app.include_router(audit.router, prefix="/api/v1")
 
 
 @app.get("/health")
