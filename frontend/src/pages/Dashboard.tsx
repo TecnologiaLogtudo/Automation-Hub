@@ -54,6 +54,9 @@ const safeSubstring = (value: string | undefined | null, start = 0, end?: number
 
 export default function Dashboard() {
   const { user, logout } = useAuthStore()
+  const canAccessManagement = Boolean(user?.is_admin || user?.role === 'sector_admin')
+  const isGlobalAdmin = Boolean(user?.is_admin)
+  const isSectorAdmin = Boolean(user?.role === 'sector_admin' && !user?.is_admin)
   const [searchQuery, setSearchQuery] = useState('')
 
   const { data: automations = [], isLoading } = useQuery<Automation[]>({
@@ -111,13 +114,13 @@ export default function Dashboard() {
 
             {/* User Info */}
             <div className="flex items-center gap-4">
-              {user?.is_admin && (
+              {canAccessManagement && (
                 <Link
                   to="/admin"
                   className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Admin</span>
+                  <span className="hidden sm:inline">Gestão</span>
                 </Link>
               )}
               
@@ -151,7 +154,11 @@ export default function Dashboard() {
             Bem-vindo, {user?.full_name}!
           </h2>
           <p className="text-slate-600 mt-1">
-            Aqui estão as automações disponíveis para o seu setor
+            {isGlobalAdmin
+              ? 'Você está no modo Administrador, com visão global das automações.'
+              : isSectorAdmin
+                ? 'Você está no modo Chefe de Setor. Use Gestão para administrar os usuários do seu setor.'
+                : 'Aqui estão as automações disponíveis para o seu setor'}
           </p>
         </div>
 

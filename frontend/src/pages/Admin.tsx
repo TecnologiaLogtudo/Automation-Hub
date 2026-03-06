@@ -49,6 +49,11 @@ interface Sector {
   description: string
 }
 
+interface FeedbackMessage {
+  type: 'success' | 'error'
+  message: string
+}
+
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
   const str = value || ''
   return end !== undefined ? str.substring(start, end) : str.substring(start)
@@ -63,6 +68,23 @@ const isValidHttpUrl = (value: string) => {
   }
 }
 
+const parseApiError = (error: any, fallback: string) => {
+  const detail = error?.response?.data?.detail
+
+  if (Array.isArray(detail)) {
+    const validation = detail
+      .map((item: any) => `${item?.loc?.join('.') || 'campo'}: ${item?.msg || 'valor inválido'}`)
+      .join(' | ')
+    return validation || fallback
+  }
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  return fallback
+}
+
 export default function Admin() {
   const { user, logout } = useAuthStore()
   const isGlobalAdmin = Boolean(user?.is_admin)
@@ -73,6 +95,7 @@ export default function Admin() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<any>({})
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null)
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean
     title: string
@@ -109,6 +132,10 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Automação criada com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível criar a automação.') })
     },
   })
 
@@ -117,12 +144,22 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Automação atualizada com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível atualizar a automação.') })
     },
   })
 
   const deleteAutomation = useMutation({
     mutationFn: (id: number) => automationsApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['automations-admin'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
+      setFeedback({ type: 'success', message: 'Automação excluída com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível excluir a automação.') })
+    },
   })
 
   const createUser = useMutation({
@@ -130,6 +167,10 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Usuário criado com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível criar o usuário.') })
     },
   })
 
@@ -138,17 +179,33 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Usuário atualizado com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível atualizar o usuário.') })
     },
   })
 
   const deleteUser = useMutation({
     mutationFn: (id: number) => usersApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setFeedback({ type: 'success', message: 'Usuário excluído com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível excluir o usuário.') })
+    },
   })
 
   const toggleUserStatus = useMutation({
     mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) => usersApi.update(id, { is_active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setFeedback({ type: 'success', message: 'Status do usuário atualizado com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível atualizar o status do usuário.') })
+    },
   })
 
   const createSector = useMutation({
@@ -156,6 +213,10 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sectors'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Setor criado com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível criar o setor.') })
     },
   })
 
@@ -164,12 +225,22 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sectors'] })
       setIsModalOpen(false)
+      setFeedback({ type: 'success', message: 'Setor atualizado com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível atualizar o setor.') })
     },
   })
 
   const deleteSector = useMutation({
     mutationFn: (id: number) => sectorsApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sectors'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sectors'] })
+      setFeedback({ type: 'success', message: 'Setor excluído com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível excluir o setor.') })
+    },
   })
 
   const tabs = isSectorAdmin
@@ -185,6 +256,7 @@ export default function Admin() {
   }
 
   const handleOpenCreate = () => {
+    setFeedback(null)
     setEditingId(null)
     setFormData({})
     // Defaults
@@ -203,6 +275,7 @@ export default function Admin() {
   }
 
   const handleOpenEdit = (item: any) => {
+    setFeedback(null)
     setEditingId(item.id)
     if (activeTab === 'automations') {
       const config = item.config || {}
@@ -248,12 +321,12 @@ export default function Admin() {
       const helpTitle = (formData.help_title || '').trim()
 
       if (helpUrl && !isValidHttpUrl(helpUrl)) {
-        alert('A URL de Dúvidas deve começar com http:// ou https://')
+        setFeedback({ type: 'error', message: 'URL de dúvidas inválida. Use http:// ou https://.' })
         return
       }
 
       if (helpUrl && !helpType) {
-        alert('Selecione o tipo de dúvidas (PDF ou Vídeo).')
+        setFeedback({ type: 'error', message: 'Selecione o tipo de dúvidas (PDF ou Vídeo).' })
         return
       }
 
@@ -374,6 +447,26 @@ export default function Admin() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {feedback && (
+          <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            feedback.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-green-200 bg-green-50 text-green-700'
+          }`}>
+            <div className="flex items-start justify-between gap-3">
+              <p>{feedback.message}</p>
+              <button
+                type="button"
+                className="text-current/70 hover:text-current"
+                onClick={() => setFeedback(null)}
+                aria-label="Fechar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Automations Tab */}
         {!isSectorAdmin && activeTab === 'automations' && (
           <div>
