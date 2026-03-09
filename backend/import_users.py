@@ -11,7 +11,7 @@ from app.models import User, Sector
 
 # --- Configuração ---
 # Garanta que o nome do arquivo Excel e os nomes das colunas correspondam exatamente ao seu arquivo.
-EXCEL_FILE_PATH = "E-mails  Logtudo.xlsx"
+EXCEL_FILE_PATH = "usuarios.xlsx"
 COL_NOME = "Nome"
 COL_EMAIL = "E-mail"
 COL_SENHA = "Senha"
