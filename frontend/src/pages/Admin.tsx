@@ -925,7 +925,6 @@ export default function Admin() {
                         <td className="px-6 py-4 text-sm text-slate-700">{requestItem.requester_sector_name}</td>
                         <td className="px-6 py-4 text-sm">
                           <div className="font-medium text-slate-900">{requestItem.automation_title}</div>
-                          <div className="text-slate-500">ID {requestItem.automation_id}</div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">
                           {new Date(requestItem.requested_at).toLocaleString('pt-BR')}
