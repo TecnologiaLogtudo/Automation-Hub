@@ -12,12 +12,12 @@ from app.models import User, Sector
 # --- Configuração ---
 # Garanta que o nome do arquivo Excel e os nomes das colunas correspondam exatamente ao seu arquivo.
 EXCEL_FILE_PATH = "usuarios.xlsx"
-COL_NOME = "Nome"
-COL_EMAIL = "E-mail"
-COL_SENHA = "Senha"
-COL_SETOR = "Setor"
-COL_FUNCAO = "Função" # Cargo (ex: Analista) -> Será salvo em preferences
-COL_TIPO = "Tipo"     # Permissão (ex: Admin, User) -> Será salvo em role
+COL_NOME = "NOME"
+COL_EMAIL = "E-MAIL"
+COL_SENHA = "SENHA"
+COL_SETOR = "SETOR"
+COL_FUNCAO = "FUNÇÃO" # Cargo (ex: Analista) -> Será salvo em preferences
+COL_TIPO = "TIPO"     # Permissão (ex: Admin, User) -> Será salvo em role
 # --- Fim da Configuração ---
 
 # Configuração para hash de senha (deve ser o mesmo usado no seu sistema de autenticação)
@@ -59,6 +59,7 @@ def import_users_from_excel(file_path: str):
         # 3. Lê o arquivo Excel usando pandas
         try:
             df = pd.read_excel(file_path)
+            print(f"Colunas encontradas no Excel: {df.columns.tolist()}")
             print(f"Arquivo Excel lido com sucesso. Encontradas {len(df)} linhas para processar.")
         except Exception as e:
             print(f"ERRO ao ler o arquivo Excel: {e}")
