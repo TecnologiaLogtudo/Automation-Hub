@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Automation, AccessRequest
+from app.models import User, Automation, AccessRequest, Sector
 from app.schemas import AutomationCreate, AutomationResponse, AutomationUpdate
 from app.auth import get_current_user, get_current_admin
 
@@ -146,7 +146,7 @@ def create_automation(
     db.commit()
     db.refresh(db_automation)
     
-    return db_automation
+    return _serialize_automation(db_automation, has_access=True)
 
 
 @router.put("/{automation_id}", response_model=AutomationResponse)
@@ -182,7 +182,7 @@ def update_automation(
     db.commit()
     db.refresh(automation)
     
-    return automation
+    return _serialize_automation(automation, has_access=True)
 
 
 @router.delete("/{automation_id}", status_code=status.HTTP_204_NO_CONTENT)
