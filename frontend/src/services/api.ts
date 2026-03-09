@@ -53,6 +53,8 @@ export const usersApi = {
   create: (data: any) => api.post('/users', data),
   update: (id: number, data: any) => api.put(`/users/${id}`, data),
   delete: (id: number) => api.delete(`/users/${id}`),
+  changeMyPassword: (data: { current_password: string; new_password: string }) =>
+    api.post('/users/me/change-password', data),
 }
 
 // Sectors API
@@ -77,4 +79,15 @@ export const auditApi = {
   }) => api.get('/audit/logs', { params }),
   getAnalytics: (params: { start_date?: string; end_date?: string }) =>
     api.get('/audit/analytics', { params }),
+}
+
+// Access Requests API
+export const accessRequestsApi = {
+  create: (data: { automation_id: number }) => api.post('/access-requests', data),
+  getMine: () => api.get('/access-requests/mine'),
+  getPending: () => api.get('/access-requests/pending'),
+  approve: (id: number, data?: { decision_note?: string }) =>
+    api.post(`/access-requests/${id}/approve`, data || {}),
+  reject: (id: number, data?: { decision_note?: string }) =>
+    api.post(`/access-requests/${id}/reject`, data || {}),
 }

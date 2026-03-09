@@ -1,13 +1,49 @@
-from typing import List
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Automation, Sector
+from app.models import User, Automation, AccessRequest
 from app.schemas import AutomationCreate, AutomationResponse, AutomationUpdate
 from app.auth import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/automations", tags=["automations"])
+
+
+def _user_has_access(user: User, automation: Automation) -> bool:
+    if user.is_admin or user.role in {"manager", "analyst"}:
+        return True
+
+    sector_ids = {sector.id for sector in automation.sectors}
+    if user.sector_id in sector_ids:
+        return True
+
+    user_ids = {allowed_user.id for allowed_user in automation.users_with_access}
+    return user.id in user_ids
+
+
+def _serialize_automation(
+    automation: Automation,
+    has_access: bool,
+    access_request_status: Optional[str] = None,
+) -> AutomationResponse:
+    return AutomationResponse(
+        id=automation.id,
+        title=automation.title,
+        description=automation.description,
+        target_url=automation.target_url,
+        icon=automation.icon,
+        is_active=automation.is_active,
+        name=automation.name,
+        status=automation.status,
+        created_at=automation.created_at,
+        updated_at=automation.updated_at,
+        config=automation.config,
+        sectors=automation.sectors,
+        has_access=has_access,
+        access_request_status=access_request_status,
+    )
 
 
 @router.get("", response_model=List[AutomationResponse])
@@ -21,32 +57,41 @@ def get_automations(
     Admins see all automations.
     """
     if current_user.is_admin:
-        # Admins see all automations (active and inactive) for management
         automations = db.query(Automation).all()
-    elif current_user.role in ["manager", "analyst"]:
-        # Managers and Analysts see all ACTIVE automations
+        return [_serialize_automation(item, has_access=True) for item in automations]
+
+    if current_user.role in ["manager", "analyst"]:
         automations = db.query(Automation).filter(Automation.is_active == True).all()
-    else:
-        # 1. Automations from sector
-        sector_automations = (
-            db.query(Automation)
-            .join(Automation.sectors)
-            .filter(Sector.id == current_user.sector_id)
-            .filter(Automation.is_active == True)
+        return [_serialize_automation(item, has_access=True) for item in automations]
+
+    # Regular users see every active automation, with access metadata.
+    automations = (
+        db.query(Automation)
+        .filter(Automation.is_active == True)
+        .all()
+    )
+
+    latest_requests = (
+        db.query(AccessRequest)
+        .filter(AccessRequest.requester_user_id == current_user.id)
+        .order_by(AccessRequest.automation_id.asc(), desc(AccessRequest.requested_at))
+        .all()
+    )
+    status_by_automation: Dict[int, str] = {}
+    for request in latest_requests:
+        status_by_automation.setdefault(request.automation_id, request.status)
+
+    response_items: List[AutomationResponse] = []
+    for item in automations:
+        has_access = _user_has_access(current_user, item)
+        response_items.append(
+            _serialize_automation(
+                item,
+                has_access=has_access,
+                access_request_status=None if has_access else status_by_automation.get(item.id),
+            )
         )
-        
-        # 2. Automations assigned directly to user (Bonus)
-        user_automations = (
-            db.query(Automation)
-            .join(Automation.users_with_access)
-            .filter(User.id == current_user.id)
-            .filter(Automation.is_active == True)
-        )
-        
-        # Union of both sets
-        automations = sector_automations.union(user_automations).all()
-    
-    return automations
+    return response_items
 
 
 @router.get("/{automation_id}", response_model=AutomationResponse)
@@ -65,17 +110,13 @@ def get_automation(
         )
     
     # Check if user has access to this automation
-    if not current_user.is_admin and current_user.role not in ["manager", "analyst"]:
-        sector_ids = [s.id for s in automation.sectors]
-        user_ids = [u.id for u in automation.users_with_access]
-        
-        if current_user.sector_id not in sector_ids and current_user.id not in user_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have access to this automation"
-            )
+    if not _user_has_access(current_user, automation):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this automation"
+        )
     
-    return automation
+    return _serialize_automation(automation, has_access=True)
 
 
 @router.post("", response_model=AutomationResponse, status_code=status.HTTP_201_CREATED)

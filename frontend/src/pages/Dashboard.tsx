@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { auditApi, automationsApi } from '../services/api'
-import { 
-  Bot, Search, LogOut, Settings, ExternalLink, HelpCircle, FileText, Video, 
-  LayoutGrid, ChevronRight
+import { accessRequestsApi, auditApi, automationsApi, usersApi } from '../services/api'
+import {
+  Bot, Search, LogOut, Settings, ExternalLink, HelpCircle, FileText, Video,
+  LayoutGrid, ChevronRight, Lock, KeyRound
 } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 
 type HelpType = 'pdf' | 'video'
+type AccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | null
 
 interface AutomationConfig {
   help_url?: string
@@ -25,6 +26,8 @@ interface Automation {
   target_url: string
   icon: string
   is_active: boolean
+  has_access: boolean
+  access_request_status: AccessRequestStatus
   config?: AutomationConfig
 }
 
@@ -32,18 +35,13 @@ const getIconComponent = (iconName: string) => {
   const cleanName = iconName?.trim() || ''
   if (!cleanName) return LucideIcons.Bot
 
-  // Tenta encontrar o ícone diretamente ou convertendo kebab-case para PascalCase
-  // Ex: "arrow-right" -> "ArrowRight", "user" -> "User"
-  const pascalCaseName = cleanName.replace(/(^\w|-\w)/g, (clear) => clear.replace(/-/, "").toUpperCase())
-  
-  // Mapeamento manual para casos específicos legados
+  const pascalCaseName = cleanName.replace(/(^\w|-\w)/g, (clear) => clear.replace(/-/, '').toUpperCase())
   const manualMap: Record<string, any> = {
-    'dollar': LucideIcons.Banknote,
-    'robot': LucideIcons.Bot,
+    dollar: LucideIcons.Banknote,
+    robot: LucideIcons.Bot,
   }
 
   const Icon = (LucideIcons as any)[cleanName] || (LucideIcons as any)[pascalCaseName] || manualMap[cleanName]
-  
   return Icon || LucideIcons.Bot
 }
 
@@ -52,26 +50,80 @@ const safeSubstring = (value: string | undefined | null, start = 0, end?: number
   return end !== undefined ? str.substring(start, end) : str.substring(start)
 }
 
+const safe = (v?: string) => (v || '').toLowerCase()
+
+const parseApiError = (error: any, fallback: string) => {
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    const validation = detail
+      .map((item: any) => `${item?.loc?.join('.') || 'campo'}: ${item?.msg || 'valor inválido'}`)
+      .join(' | ')
+    return validation || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) return detail
+  return fallback
+}
+
+const requestStatusLabel: Record<Exclude<AccessRequestStatus, null>, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovada',
+  rejected: 'Reprovada',
+  cancelled: 'Cancelada',
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuthStore()
+  const queryClient = useQueryClient()
   const canAccessManagement = Boolean(user?.is_admin || user?.role === 'sector_admin' || user?.role === 'manager')
   const isGlobalAdmin = Boolean(user?.is_admin)
   const isSectorAdmin = Boolean(user?.role === 'sector_admin' && !user?.is_admin)
   const isManager = Boolean(user?.role === 'manager' && !user?.is_admin)
   const [searchQuery, setSearchQuery] = useState('')
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  })
 
   const { data: automations = [], isLoading } = useQuery<Automation[]>({
     queryKey: ['automations'],
     queryFn: () => automationsApi.getAll().then(res => res.data),
   })
 
-  const safe = (v?: string) => (v || '').toLowerCase()
+  const requestAccessMutation = useMutation({
+    mutationFn: (automation_id: number) => accessRequestsApi.create({ automation_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
+      setFeedback({ type: 'success', message: 'Solicitação enviada com sucesso.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível enviar a solicitação.') })
+    },
+  })
 
-  const filteredAutomations = (automations || []).filter(automation => {
+  const changePasswordMutation = useMutation({
+    mutationFn: (payload: { current_password: string; new_password: string }) =>
+      usersApi.changeMyPassword(payload),
+    onSuccess: () => {
+      setFeedback({ type: 'success', message: 'Senha alterada com sucesso.' })
+      setIsPasswordModalOpen(false)
+      setPasswordData({ current_password: '', new_password: '', confirm_password: '' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível alterar a senha.') })
+    },
+  })
+
+  const filteredActiveAutomations = automations.filter((automation) => {
     if (!automation.is_active) return false
     const search = safe(searchQuery)
     return safe(automation.title).includes(search) || safe(automation.description).includes(search)
   })
+
+  const availableAutomations = filteredActiveAutomations.filter((automation) => automation.has_access)
+  const blockedAutomations = filteredActiveAutomations.filter((automation) => !automation.has_access)
 
   const handleLogout = () => {
     logout()
@@ -82,6 +134,7 @@ export default function Dashboard() {
   }
 
   const openAutomation = (automation: Automation) => {
+    if (!automation.has_access) return
     auditApi.trackAccess(automation.id).catch(() => {
       // Tracking is non-blocking by design.
     })
@@ -99,13 +152,114 @@ export default function Dashboard() {
     return HelpCircle
   }
 
+  const handleRequestAccess = (event: React.MouseEvent<HTMLButtonElement>, automationId: number) => {
+    event.stopPropagation()
+    requestAccessMutation.mutate(automationId)
+  }
+
+  const handleSubmitPassword = (event: React.FormEvent) => {
+    event.preventDefault()
+
+    if (!passwordData.current_password || !passwordData.new_password) {
+      setFeedback({ type: 'error', message: 'Preencha todos os campos de senha.' })
+      return
+    }
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setFeedback({ type: 'error', message: 'A confirmação da nova senha não confere.' })
+      return
+    }
+    if (passwordData.current_password === passwordData.new_password) {
+      setFeedback({ type: 'error', message: 'A nova senha deve ser diferente da atual.' })
+      return
+    }
+
+    changePasswordMutation.mutate({
+      current_password: passwordData.current_password,
+      new_password: passwordData.new_password,
+    })
+  }
+
+  const renderAutomationCard = (automation: Automation, index: number, blocked = false) => {
+    const Icon = getIconComponent(automation.icon)
+    const helpUrl = automation.config?.help_url?.trim()
+    const HelpIcon = getHelpIcon(automation.config?.help_type)
+    const requestStatus = automation.access_request_status
+    const isPending = requestStatus === 'pending'
+
+    return (
+      <div
+        key={automation.id}
+        className={`automation-card bg-white rounded-2xl border p-6 animate-fade-in ${
+          blocked ? 'border-amber-200' : 'border-slate-200 cursor-pointer'
+        }`}
+        style={{ animationDelay: `${index * 50}ms` }}
+        onClick={() => openAutomation(automation)}
+      >
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
+          blocked
+            ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 text-amber-600'
+            : 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10 text-blue-600'
+        }`}>
+          <Icon className="w-6 h-6" />
+        </div>
+
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+          {automation.title}
+        </h3>
+        <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+          {automation.description}
+        </p>
+
+        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          {!blocked ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-500 flex items-center gap-1">
+                Acessar
+                <ChevronRight className="w-4 h-4" />
+              </span>
+              {helpUrl && (
+                <button
+                  type="button"
+                  onClick={(event) => openHelp(event, helpUrl)}
+                  title={automation.config?.help_title || 'Abrir documentação'}
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  <HelpIcon className="w-4 h-4" />
+                  Dúvidas
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isPending || requestAccessMutation.isPending}
+                onClick={(event) => handleRequestAccess(event, automation.id)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Lock className="w-4 h-4" />
+                Solicitar Acesso
+              </button>
+              <span className="text-xs text-slate-500">
+                Status: {requestStatus ? requestStatusLabel[requestStatus] : 'Sem solicitação'}
+              </span>
+            </div>
+          )}
+          {!blocked ? (
+            <ExternalLink className="w-5 h-5 text-blue-500" />
+          ) : (
+            <Lock className="w-5 h-5 text-amber-500" />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl shadow-lg shadow-blue-500/25">
                 <Bot className="w-5 h-5 text-white" />
@@ -116,8 +270,20 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* User Info */}
             <div className="flex items-center gap-4">
+              {!isGlobalAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedback(null)
+                    setIsPasswordModalOpen(true)
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span className="hidden sm:inline">Alterar senha</span>
+                </button>
+              )}
               {canAccessManagement && (
                 <Link
                   to="/admin"
@@ -127,7 +293,7 @@ export default function Dashboard() {
                   <span className="hidden sm:inline">Gestão</span>
                 </Link>
               )}
-              
+
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">{user?.full_name}</p>
@@ -150,9 +316,17 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
+        {feedback && (
+          <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            feedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}>
+            {feedback.message}
+          </div>
+        )}
+
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-slate-900">
             Bem-vindo, {user?.full_name}!
@@ -162,13 +336,12 @@ export default function Dashboard() {
               ? 'Você está no modo Administrador, com visão global das automações.'
               : isManager
                 ? 'Você está no modo Gerente, com visão global dos logs de auditoria em Gestão.'
-              : isSectorAdmin
-                ? 'Você está no modo Chefe de Setor. Use Gestão para administrar os usuários do seu setor.'
-                : 'Aqui estão as automações disponíveis para o seu setor'}
+                : isSectorAdmin
+                  ? 'Você está no modo Chefe de Setor. Use Gestão para administrar os usuários do seu setor.'
+                  : 'Aqui estão as automações disponíveis para o seu setor'}
           </p>
         </div>
 
-        {/* Search Bar */}
         <div className="mb-8">
           <div className="relative max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -182,7 +355,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Automations Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="flex items-center gap-3 text-slate-500">
@@ -193,73 +365,57 @@ export default function Dashboard() {
               Carregando automações...
             </div>
           </div>
-        ) : filteredAutomations.length === 0 ? (
+        ) : filteredActiveAutomations.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
             <LayoutGrid className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-slate-900 mb-2">
               {searchQuery ? 'Nenhuma automação encontrada' : 'Nenhuma automação disponível'}
             </h3>
             <p className="text-slate-500">
-              {searchQuery 
-                ? 'Tente buscar por outro termo' 
+              {searchQuery
+                ? 'Tente buscar por outro termo'
                 : 'Entre em contato com o administrador para solicitar acesso'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAutomations.map((automation, index) => {
-              const Icon = getIconComponent(automation.icon)
-              const helpUrl = automation.config?.help_url?.trim()
-              const HelpIcon = getHelpIcon(automation.config?.help_type)
-              return (
-                <div
-                  key={automation.id}
-                  className="automation-card bg-white rounded-2xl border border-slate-200 p-6 cursor-pointer animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  onClick={() => openAutomation(automation)}
-                >
-                  {/* Icon */}
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center text-blue-600 mb-4">
-                    <Icon className="w-6 h-6" />
-                  </div>
-
-                  {/* Content */}
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    {automation.title}
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                    {automation.description}
-                  </p>
-
-                  {/* Action */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-slate-500 flex items-center gap-1">
-                        Acessar
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
-                      {helpUrl && (
-                        <button
-                          type="button"
-                          onClick={(event) => openHelp(event, helpUrl)}
-                          title={automation.config?.help_title || 'Abrir documentação'}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                        >
-                          <HelpIcon className="w-4 h-4" />
-                          Dúvidas
-                        </button>
-                      )}
-                    </div>
-                    <ExternalLink className="w-5 h-5 text-blue-500" />
-                  </div>
+          <div className="space-y-10">
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Disponíveis para você</h3>
+                <span className="text-sm text-slate-500">{availableAutomations.length} automações</span>
+              </div>
+              {availableAutomations.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                  Nenhuma automação disponível com os filtros atuais.
                 </div>
-              )
-            })}
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {availableAutomations.map((automation, index) => renderAutomationCard(automation, index))}
+                </div>
+              )}
+            </section>
+
+            {!isGlobalAdmin && (
+              <section>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900">Sem acesso</h3>
+                  <span className="text-sm text-slate-500">{blockedAutomations.length} automações</span>
+                </div>
+                {blockedAutomations.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                    Você já possui acesso a todas as automações ativas listadas.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {blockedAutomations.map((automation, index) => renderAutomationCard(automation, index, true))}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-slate-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-sm text-slate-500">
@@ -267,6 +423,69 @@ export default function Dashboard() {
           </p>
         </div>
       </footer>
+
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+              <KeyRound className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-slate-900">Alterar senha</h3>
+            </div>
+            <form onSubmit={handleSubmitPassword} className="space-y-4 px-6 py-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Senha atual</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.current_password}
+                  onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nova senha</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.new_password}
+                  onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nova senha</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.confirm_password}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPasswordModalOpen(false)
+                    setPasswordData({ current_password: '', new_password: '', confirm_password: '' })
+                  }}
+                  className="rounded-lg px-4 py-2 text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={changePasswordMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Salvar senha
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
