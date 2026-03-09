@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { auditApi, automationsApi, usersApi, sectorsApi } from '../services/api'
+import { accessRequestsApi, auditApi, automationsApi, usersApi, sectorsApi } from '../services/api'
 import { 
   Bot, Users, Building2, Plus, Trash2, Edit, 
-  AlertCircle, CheckCircle, LogOut, X, Power, Shield, BarChart3
+  AlertCircle, CheckCircle, LogOut, X, Power, Shield, BarChart3, Clock
 } from 'lucide-react'
 
-type Tab = 'automations' | 'users' | 'sectors' | 'audit' | 'analytics'
+type Tab = 'automations' | 'users' | 'sectors' | 'audit' | 'analytics' | 'access_requests'
 
 type HelpType = 'pdf' | 'video'
 
@@ -91,6 +91,23 @@ interface AuditAnalytics {
   peak_hours: AnalyticsHourItem[]
 }
 
+interface AccessRequestItem {
+  id: number
+  requester_user_id: number
+  requester_user_name: string
+  requester_user_email: string
+  requester_sector_id: number
+  requester_sector_name: string
+  automation_id: number
+  automation_title: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  requested_at: string
+  decided_at?: string | null
+  decided_by_user_id?: number | null
+  decided_by_user_name?: string | null
+  decision_note?: string | null
+}
+
 const safeSubstring = (value: string | undefined | null, start = 0, end?: number) => {
   const str = value || ''
   return end !== undefined ? str.substring(start, end) : str.substring(start)
@@ -170,7 +187,7 @@ export default function Admin() {
       setActiveTab('analytics')
       return
     }
-    if (isSectorAdmin && !['users', 'audit'].includes(activeTab)) {
+    if (isSectorAdmin && !['users', 'audit', 'access_requests'].includes(activeTab)) {
       setActiveTab('users')
     }
   }, [activeTab, isSectorAdmin, isManager])
@@ -214,6 +231,12 @@ export default function Admin() {
       end_date: analyticsFilters.endDate ? `${analyticsFilters.endDate}T23:59:59` : undefined,
     }).then(res => res.data),
     enabled: Boolean(isGlobalAdmin || isManager),
+  })
+
+  const { data: pendingAccessRequests = [], isLoading: loadingAccessRequests } = useQuery<AccessRequestItem[]>({
+    queryKey: ['access-requests-pending'],
+    queryFn: () => accessRequestsApi.getPending().then(res => res.data),
+    enabled: Boolean(isGlobalAdmin || isSectorAdmin),
   })
 
   // Mutations
@@ -333,6 +356,30 @@ export default function Admin() {
     },
   })
 
+  const approveAccessRequest = useMutation({
+    mutationFn: (id: number) => accessRequestsApi.approve(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access-requests-pending'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['automations-admin'] })
+      setFeedback({ type: 'success', message: 'Solicitação aprovada e acesso concedido.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível aprovar a solicitação.') })
+    },
+  })
+
+  const rejectAccessRequest = useMutation({
+    mutationFn: (id: number) => accessRequestsApi.reject(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access-requests-pending'] })
+      setFeedback({ type: 'success', message: 'Solicitação reprovada.' })
+    },
+    onError: (error: any) => {
+      setFeedback({ type: 'error', message: parseApiError(error, 'Não foi possível reprovar a solicitação.') })
+    },
+  })
+
   const tabs = isManager
     ? [
         { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3, count: auditAnalytics?.total_accesses || 0 },
@@ -341,12 +388,14 @@ export default function Admin() {
     : isSectorAdmin
       ? [
           { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
+          { id: 'access_requests' as Tab, label: 'Solicitações', icon: Clock, count: pendingAccessRequests.length },
           { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
         ]
       : [
           { id: 'automations' as Tab, label: 'Automações', icon: Bot, count: automations.length },
           { id: 'users' as Tab, label: 'Usuários', icon: Users, count: users.length },
           { id: 'sectors' as Tab, label: 'Setores', icon: Building2, count: sectors.length },
+          { id: 'access_requests' as Tab, label: 'Solicitações', icon: Clock, count: pendingAccessRequests.length },
           { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3, count: auditAnalytics?.total_accesses || 0 },
           { id: 'audit' as Tab, label: 'Auditoria', icon: Shield, count: auditLogs?.total || 0 },
         ]
@@ -823,6 +872,79 @@ export default function Admin() {
                               title="Excluir"
                             >
                               <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Access Requests Tab */}
+        {activeTab === 'access_requests' && (isGlobalAdmin || isSectorAdmin) && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-slate-900">Solicitações de Acesso</h2>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Solicitante</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Setor</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Automação</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-600">Data</th>
+                    <th className="text-right px-6 py-4 text-sm font-medium text-slate-600">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {loadingAccessRequests ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                        Carregando...
+                      </td>
+                    </tr>
+                  ) : pendingAccessRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                        Nenhuma solicitação pendente
+                      </td>
+                    </tr>
+                  ) : (
+                    pendingAccessRequests.map((requestItem) => (
+                      <tr key={requestItem.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 text-sm">
+                          <div className="font-medium text-slate-900">{requestItem.requester_user_name}</div>
+                          <div className="text-slate-500">{requestItem.requester_user_email}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{requestItem.requester_sector_name}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="font-medium text-slate-900">{requestItem.automation_title}</div>
+                          <div className="text-slate-500">ID {requestItem.automation_id}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          {new Date(requestItem.requested_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => approveAccessRequest.mutate(requestItem.id)}
+                              className="px-3 py-2 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                            >
+                              Aprovar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => rejectAccessRequest.mutate(requestItem.id)}
+                              className="px-3 py-2 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                            >
+                              Reprovar
                             </button>
                           </div>
                         </td>

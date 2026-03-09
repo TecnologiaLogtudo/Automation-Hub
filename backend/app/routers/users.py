@@ -9,8 +9,10 @@ from app.auth import (
     get_current_user,
     get_current_user_manager,
     get_password_hash,
+    verify_password,
     is_sector_admin,
 )
+from app.schemas import ChangePasswordRequest, MessageResponse
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -55,6 +57,31 @@ def get_users(
 def get_my_profile(current_user: User = Depends(get_current_user)):
     """Get current user's profile"""
     return current_user
+
+
+@router.post("/me/change-password", response_model=MessageResponse)
+def change_my_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Allow an authenticated user to change their own password."""
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password",
+        )
+
+    current_user.password_hash = get_password_hash(payload.new_password)
+    db.commit()
+
+    return MessageResponse(message="Password updated successfully")
 
 
 @router.get("/{user_id}", response_model=UserResponse)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text, Index
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
@@ -66,6 +66,16 @@ class User(Base):
         back_populates="users_with_access"
     )
     audit_logs = relationship("AuditLog", back_populates="user")
+    access_requests = relationship(
+        "AccessRequest",
+        foreign_keys="AccessRequest.requester_user_id",
+        back_populates="requester",
+    )
+    decided_access_requests = relationship(
+        "AccessRequest",
+        foreign_keys="AccessRequest.decided_by_user_id",
+        back_populates="decided_by",
+    )
 
     @hybrid_property
     def name(self) -> str:
@@ -103,6 +113,7 @@ class Automation(Base):
         back_populates="extra_automations"
     )
     audit_logs = relationship("AuditLog", back_populates="automation")
+    access_requests = relationship("AccessRequest", back_populates="automation")
 
     @hybrid_property
     def name(self) -> str:
@@ -130,3 +141,32 @@ class AuditLog(Base):
 
     user = relationship("User", back_populates="audit_logs")
     automation = relationship("Automation", back_populates="audit_logs")
+
+
+class AccessRequest(Base):
+    __tablename__ = "access_requests"
+    __table_args__ = (
+        Index("ix_access_requests_requester_user_id", "requester_user_id"),
+        Index("ix_access_requests_automation_id", "automation_id"),
+        Index("ix_access_requests_status", "status"),
+        Index(
+            "uq_access_requests_pending_pair",
+            "requester_user_id",
+            "automation_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    requester_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    automation_id = Column(Integer, ForeignKey("automations.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    requested_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    decided_at = Column(DateTime, nullable=True)
+    decided_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    requester = relationship("User", foreign_keys=[requester_user_id], back_populates="access_requests")
+    decided_by = relationship("User", foreign_keys=[decided_by_user_id], back_populates="decided_access_requests")
+    automation = relationship("Automation", back_populates="access_requests")

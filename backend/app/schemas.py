@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 
 
@@ -129,6 +129,8 @@ class AutomationResponse(AutomationBase):
     updated_at: datetime
     config: Optional[dict] = None # Populated from model property
     sectors: List[SectorResponse] = []
+    has_access: bool = True
+    access_request_status: Optional[Literal["pending", "approved", "rejected", "cancelled"]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,6 +158,15 @@ class TokenData(BaseModel):
     sector_id: Optional[int] = None
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 # ============ Dashboard Schemas ============
 class DashboardStats(BaseModel):
     total_automations: int
@@ -166,6 +177,31 @@ class DashboardStats(BaseModel):
 # ============ Audit Schemas ============
 class AuditAccessCreate(BaseModel):
     automation_id: int
+
+
+class AccessRequestCreate(BaseModel):
+    automation_id: int
+
+
+class AccessRequestDecision(BaseModel):
+    decision_note: Optional[str] = None
+
+
+class AccessRequestResponse(BaseModel):
+    id: int
+    requester_user_id: int
+    requester_user_name: str
+    requester_user_email: str
+    requester_sector_id: int
+    requester_sector_name: str
+    automation_id: int
+    automation_title: str
+    status: Literal["pending", "approved", "rejected", "cancelled"]
+    requested_at: datetime
+    decided_at: Optional[datetime] = None
+    decided_by_user_id: Optional[int] = None
+    decided_by_user_name: Optional[str] = None
+    decision_note: Optional[str] = None
 
 
 class AuditLogResponse(BaseModel):
