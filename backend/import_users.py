@@ -12,11 +12,12 @@ from app.models import User, Sector
 # --- Configuração ---
 # Garanta que o nome do arquivo Excel e os nomes das colunas correspondam exatamente ao seu arquivo.
 EXCEL_FILE_PATH = "E-mails  Logtudo.xlsx"
-COL_NOME = "nome"
-COL_EMAIL = "email"
-COL_SENHA = "senha"
-COL_SETOR = "setor"
-COL_FUNCAO = "função"
+COL_NOME = "Nome"
+COL_EMAIL = "E-mail"
+COL_SENHA = "Senha"
+COL_SETOR = "Setor"
+COL_FUNCAO = "Função" # Cargo (ex: Analista) -> Será salvo em preferences
+COL_TIPO = "Tipo"     # Permissão (ex: Admin, User) -> Será salvo em role
 # --- Fim da Configuração ---
 
 # Configuração para hash de senha (deve ser o mesmo usado no seu sistema de autenticação)
@@ -67,6 +68,17 @@ def import_users_from_excel(file_path: str):
         users_skipped = 0
         users_failed = 0
 
+        # Mapa para traduzir o que está escrito no Excel para as roles do sistema
+        role_mapping = {
+            "administrador": "admin",
+            "admin": "admin",
+            "gerente": "manager",
+            "analista": "analyst",
+            "usuário": "user",
+            "usuario": "user",
+            "user": "user"
+        }
+
         # 4. Itera sobre cada linha da planilha
         for index, row in df.iterrows():
             email = str(row.get(COL_EMAIL, '')).strip().lower()
@@ -86,7 +98,13 @@ def import_users_from_excel(file_path: str):
             full_name = str(row.get(COL_NOME, '')).strip()
             password = str(row.get(COL_SENHA, ''))
             sector_name = str(row.get(COL_SETOR, '')).strip().lower()
-            role = str(row.get(COL_FUNCAO, 'user')).strip().lower()
+            
+            # Processa o Tipo (Role)
+            raw_type = str(row.get(COL_TIPO, '')).strip().lower()
+            role = role_mapping.get(raw_type, "user") # Padrão é 'user' se não reconhecer
+
+            # Processa a Função (Cargo) para salvar nas preferências
+            job_title = str(row.get(COL_FUNCAO, '')).strip()
 
             # Validação da senha
             if not password:
@@ -108,7 +126,7 @@ def import_users_from_excel(file_path: str):
                 sector_id=sector_id,
                 role=role or "user",  # Garante que 'user' seja o padrão se a célula estiver vazia
                 is_active=True,
-                preferences={} # Define um valor padrão
+                preferences={"job_title": job_title} if job_title else {} # Salva a função aqui
             )
             
             users_to_add.append(new_user)
