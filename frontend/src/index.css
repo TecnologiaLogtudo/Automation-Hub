@@ -10,8 +10,12 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #f8fafc;
-  color: #0f172a;
+  /* Fundo com gradiente radial suave em movimento */
+  background: radial-gradient(ellipse at 20% 50%, #0f1c3f 0%, #0a0f1e 60%, #070c1a 100%);
+  background-size: 200% 200%;
+  animation: moveGradient 15s ease infinite;
+  color: #f8fafc;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -36,6 +40,12 @@ body {
 }
 
 /* Animation classes */
+@keyframes moveGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
