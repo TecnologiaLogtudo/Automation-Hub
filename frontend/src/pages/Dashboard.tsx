@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { accessRequestsApi, auditApi, automationsApi, usersApi } from '../services/api'
 import {
   Bot, Search, LogOut, Settings, ExternalLink, HelpCircle, FileText, Video,
-  LayoutGrid, ChevronRight, Lock, KeyRound
+  LayoutGrid, ChevronRight, Lock, KeyRound, X
 } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 
@@ -69,6 +69,35 @@ const requestStatusLabel: Record<Exclude<AccessRequestStatus, null>, string> = {
   approved: 'Aprovada',
   rejected: 'Reprovada',
   cancelled: 'Cancelada',
+}
+
+// Componente para animar a contagem de números usando requestAnimationFrame
+const AnimatedCount = ({ value }: { value: number }) => {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const duration = 1200 // 1.2s de duração
+    const startTime = performance.now()
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // Curva de ease-out suave (easeOutQuart)
+      const easeProgress = 1 - Math.pow(1 - progress, 4)
+      
+      setCount(Math.floor(easeProgress * value))
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setCount(value)
+      }
+    }
+
+    requestAnimationFrame(animate)
+  }, [value])
+
+  return <span>{count}</span>
 }
 
 export default function Dashboard() {
@@ -224,8 +253,8 @@ export default function Dashboard() {
     return (
       <div
         key={automation.id}
-        className={`group/card automation-card relative bg-white/5 backdrop-blur-md rounded-2xl border p-6 animate-fade-in ${
-          blocked ? 'border-amber-500/30' : 'border-white/10 cursor-pointer hover:bg-white/10'
+        className={`group/card automation-card relative p-6 animate-fade-in ${
+          blocked ? 'blocked' : 'cursor-pointer hover:bg-white/10'
         }`}
         style={{ animationDelay: `${index * 80}ms` }}
         onClick={() => openAutomation(automation)}
@@ -255,15 +284,21 @@ export default function Dashboard() {
                 <ChevronRight className="w-4 h-4" />
               </span>
               {helpUrl && (
-                <button
-                  type="button"
-                  onClick={(event) => openHelp(event, helpUrl)}
-                  title={automation.config?.help_title || 'Abrir documentação'}
-                  className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
-                >
-                  <HelpIcon className="w-4 h-4" />
-                  Dúvidas
-                </button>
+                <div className="relative group/tooltip flex items-center">
+                  <button
+                    type="button"
+                    onClick={(event) => openHelp(event, helpUrl)}
+                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                  >
+                    <HelpIcon className="w-4 h-4" />
+                    Dúvidas
+                  </button>
+                  {/* Tooltip Customizado animado */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-slate-800 text-xs font-medium text-white rounded-lg opacity-0 translate-y-1 group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all pointer-events-none whitespace-nowrap z-20 shadow-xl border border-white/10">
+                    {automation.config?.help_title || 'Abrir documentação'}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -383,15 +418,27 @@ export default function Dashboard() {
         </div>
 
         <div className="mb-8">
-          <div className="relative max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <div className="relative max-w-md group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-slate-400 transition-colors group-focus-within:text-blue-400" />
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar automações..."
-              className="w-full pl-12 pr-4 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+              className="w-full pl-11 pr-10 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/10 shadow-sm transition-all hover:bg-white/10"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                title="Limpar busca"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -435,7 +482,9 @@ export default function Dashboard() {
             <section>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">Disponíveis para você</h3>
-                <span className="text-sm text-slate-400">{availableAutomations.length} automações</span>
+                <span className="text-sm text-slate-400">
+                  <AnimatedCount value={availableAutomations.length} /> automações
+                </span>
               </div>
               {availableAutomations.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 text-sm text-slate-400">
@@ -452,7 +501,9 @@ export default function Dashboard() {
               <section>
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">Sem acesso</h3>
-                  <span className="text-sm text-slate-400">{blockedAutomations.length} automações</span>
+                  <span className="text-sm text-slate-400">
+                    <AnimatedCount value={blockedAutomations.length} /> automações
+                  </span>
                 </div>
                 {blockedAutomations.length === 0 ? (
                   <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 text-sm text-slate-400">

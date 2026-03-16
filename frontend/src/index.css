@@ -78,12 +78,23 @@ body {
 
 /* Card hover effect */
 .automation-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease-out;
 }
 
 .automation-card:hover {
   /* Tilt 3D é gerado via Javascript! Aqui adicionamos apenas uma sombra profunda. */
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.automation-card.blocked {
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 /* Shimmer Button Effect (Efeito de Brilho Passando) */
