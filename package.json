@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "@tsparticles/react": "^3.0.0",
     "tsparticles-slim": "^2.12.0"
   }
 }

@@ -77,7 +77,7 @@ export default function ParticleBackground() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrameId: number;
+    let animationFrameId: number = 0;
     let streams: DataStream[] = [];
 
     const resize = () => {

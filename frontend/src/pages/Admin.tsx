@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
@@ -977,7 +977,7 @@ export default function Admin() {
                   Carregando...
                 </div>
               ) : sectors.length === 0 ? (
-                <div className="col-span-full text-center-slate-500 py-8 text">
+                <div className="col-span-full text-center text-slate-500 py-8">
                   Nenhum setor encontrado
                 </div>
               ) : (
