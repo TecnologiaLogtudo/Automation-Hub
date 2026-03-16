@@ -528,7 +528,7 @@ export default function Admin() {
   const maxHourAccess = Math.max(1, ...peakHours.map((item) => item.access_count))
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen text-slate-300">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -571,7 +571,7 @@ export default function Admin() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="glass-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex gap-1 -mb-px">
             {tabs.map((tab) => (
@@ -581,8 +581,8 @@ export default function Admin() {
                 className={`
                   flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-colors
                   ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-slate-400 hover:text-white hover:border-white/20'
                   }
                 `}
               >
@@ -591,8 +591,8 @@ export default function Admin() {
                 <span className={`
                   ml-1 px-2 py-0.5 text-xs rounded-full
                   ${activeTab === tab.id
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-white/10 text-slate-400'
                   }
                 `}>
                   {tab.count}
