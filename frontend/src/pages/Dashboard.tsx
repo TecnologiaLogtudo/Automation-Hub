@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
@@ -86,6 +86,23 @@ export default function Dashboard() {
     new_password: '',
     confirm_password: '',
   })
+
+  // Efeito de Máquina de Escrever (Typewriter)
+  const [displayedGreeting, setDisplayedGreeting] = useState('')
+  const fullGreeting = `Bem-vindo, ${user?.full_name}!`
+
+  useEffect(() => {
+    let currentLength = 0
+    setDisplayedGreeting('')
+    const interval = setInterval(() => {
+      currentLength++
+      setDisplayedGreeting(fullGreeting.slice(0, currentLength))
+      if (currentLength >= fullGreeting.length) {
+        clearInterval(interval)
+      }
+    }, 60) // Velocidade da digitação (ms)
+    return () => clearInterval(interval)
+  }, [fullGreeting])
 
   const { data: automations = [], isLoading } = useQuery<Automation[]>({
     queryKey: ['automations'],
@@ -179,6 +196,24 @@ export default function Dashboard() {
     })
   }
 
+  // Lida com o Hover Tilt 3D
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget
+    const rect = card.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    
+    const rotateX = ((y / rect.height) - 0.5) * -8
+    const rotateY = ((x / rect.width) - 0.5) * 8
+    
+    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`
+  }
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget
+    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`
+  }
+
   const renderAutomationCard = (automation: Automation, index: number, blocked = false) => {
     const Icon = getIconComponent(automation.icon)
     const helpUrl = automation.config?.help_url?.trim()
@@ -189,18 +224,20 @@ export default function Dashboard() {
     return (
       <div
         key={automation.id}
-        className={`automation-card bg-white/5 backdrop-blur-md rounded-2xl border p-6 animate-fade-in ${
+        className={`group/card automation-card relative bg-white/5 backdrop-blur-md rounded-2xl border p-6 animate-fade-in ${
           blocked ? 'border-amber-500/30' : 'border-white/10 cursor-pointer hover:bg-white/10'
         }`}
-        style={{ animationDelay: `${index * 50}ms` }}
+        style={{ animationDelay: `${index * 80}ms` }}
         onClick={() => openAutomation(automation)}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 border border-white/5 shadow-inner ${
           blocked
             ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400'
             : 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 text-blue-400'
         }`}>
-          <Icon className="w-6 h-6" />
+          <Icon className="w-6 h-6 icon-bounce" />
         </div>
 
         <h3 className="text-lg font-semibold text-white mb-2">
@@ -213,7 +250,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between pt-4 border-t border-white/10">
           {!blocked ? (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400 flex items-center gap-1">
+              <span className="shimmer-btn inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm font-medium text-blue-400 transition-colors group-hover/card:bg-blue-500/20 group-hover/card:text-blue-300 group-hover/card:border-blue-500/30">
                 Acessar
                 <ChevronRight className="w-4 h-4" />
               </span>
@@ -235,7 +272,7 @@ export default function Dashboard() {
                 type="button"
                 disabled={isPending || requestAccessMutation.isPending}
                 onClick={(event) => handleRequestAccess(event, automation.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="shimmer-btn relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/30 hover:text-amber-300 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Lock className="w-4 h-4" />
                 Solicitar Acesso
@@ -330,8 +367,9 @@ export default function Dashboard() {
         )}
 
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white">
-            Bem-vindo, {user?.full_name}!
+          <h2 className="text-2xl font-bold text-white flex items-center h-8">
+            {displayedGreeting}
+            <span className="typewriter-cursor h-[0.9em]"></span>
           </h2>
           <p className="text-slate-400 mt-1">
             {isGlobalAdmin
@@ -358,14 +396,27 @@ export default function Dashboard() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="flex items-center gap-3 text-slate-400">
-              <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Carregando automações...
-            </div>
+          <div className="space-y-10">
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="h-6 w-48 bg-white/10 rounded-lg animate-pulse"></div>
+                <div className="h-4 w-24 bg-white/10 rounded-lg animate-pulse"></div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 p-6 animate-pulse">
+                    <div className="w-12 h-12 rounded-xl bg-white/10 mb-4"></div>
+                    <div className="h-6 w-3/4 bg-white/10 rounded-lg mb-2"></div>
+                    <div className="h-4 w-full bg-white/10 rounded-lg mb-1"></div>
+                    <div className="h-4 w-2/3 bg-white/10 rounded-lg mb-4"></div>
+                    <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                      <div className="h-8 w-24 bg-white/10 rounded-lg"></div>
+                      <div className="h-5 w-5 bg-white/10 rounded-full"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         ) : filteredActiveAutomations.length === 0 ? (
           <div className="text-center py-20 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10">
