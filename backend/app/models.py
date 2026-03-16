@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Text, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -6,6 +6,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 
+
+def get_local_now():
+    """
+    Retorna o horário atual no fuso de Brasília (UTC-3).
+    Resolve o problema de 3h a mais nos logs de auditoria e métricas do Analytics.
+    """
+    return datetime.utcnow() - timedelta(hours=3)
 
 # Many-to-many relationship table for automations and sectors
 automation_permissions = Table(
@@ -30,7 +37,7 @@ class Sector(Base):
     name = Column(String(100), unique=True, nullable=False)
     slug = Column(String(50), unique=True, nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_local_now)
 
     # Relationships
     users = relationship("User", back_populates="sector")
@@ -52,8 +59,8 @@ class User(Base):
     role = Column(String(50), default="user")  # user, manager, analyst, sector_admin, admin
     is_active = Column(Boolean, default=True)
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_local_now)
+    updated_at = Column(DateTime, default=get_local_now, onupdate=get_local_now)
     
     # Suporte nativo ao Postgres JSONB para alto desempenho
     preferences = Column(JSONB, nullable=True, default={})
@@ -95,8 +102,8 @@ class Automation(Base):
     target_url = Column(String(500), nullable=False)
     icon = Column(String(100), default="robot")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_local_now)
+    updated_at = Column(DateTime, default=get_local_now, onupdate=get_local_now)
     
     # Suporte nativo ao Postgres JSONB para alto desempenho
     config = Column(JSONB, nullable=True, default={})
@@ -137,7 +144,7 @@ class AuditLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     user_sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
     automation_id = Column(Integer, ForeignKey("automations.id"), nullable=False)
-    occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    occurred_at = Column(DateTime, nullable=False, default=get_local_now)
 
     user = relationship("User", back_populates="audit_logs")
     automation = relationship("Automation", back_populates="audit_logs")
@@ -162,7 +169,7 @@ class AccessRequest(Base):
     requester_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     automation_id = Column(Integer, ForeignKey("automations.id"), nullable=False)
     status = Column(String(20), nullable=False, default="pending")
-    requested_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    requested_at = Column(DateTime, nullable=False, default=get_local_now)
     decided_at = Column(DateTime, nullable=True)
     decided_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     decision_note = Column(Text, nullable=True)
