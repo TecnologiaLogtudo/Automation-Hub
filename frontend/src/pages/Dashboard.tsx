@@ -189,31 +189,31 @@ export default function Dashboard() {
     return (
       <div
         key={automation.id}
-        className={`automation-card bg-white rounded-2xl border p-6 animate-fade-in ${
-          blocked ? 'border-amber-200' : 'border-slate-200 cursor-pointer'
+        className={`automation-card bg-white/5 backdrop-blur-md rounded-2xl border p-6 animate-fade-in ${
+          blocked ? 'border-amber-500/30' : 'border-white/10 cursor-pointer hover:bg-white/10'
         }`}
         style={{ animationDelay: `${index * 50}ms` }}
         onClick={() => openAutomation(automation)}
       >
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 border border-white/5 shadow-inner ${
           blocked
-            ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 text-amber-600'
-            : 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10 text-blue-600'
+            ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400'
+            : 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 text-blue-400'
         }`}>
           <Icon className="w-6 h-6" />
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+        <h3 className="text-lg font-semibold text-white mb-2">
           {automation.title}
         </h3>
-        <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+        <p className="text-sm text-slate-400 mb-4 line-clamp-2">
           {automation.description}
         </p>
 
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-between pt-4 border-t border-white/10">
           {!blocked ? (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-500 flex items-center gap-1">
+              <span className="text-sm text-slate-400 flex items-center gap-1">
                 Acessar
                 <ChevronRight className="w-4 h-4" />
               </span>
@@ -222,7 +222,7 @@ export default function Dashboard() {
                   type="button"
                   onClick={(event) => openHelp(event, helpUrl)}
                   title={automation.config?.help_title || 'Abrir documentação'}
-                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
                 >
                   <HelpIcon className="w-4 h-4" />
                   Dúvidas
@@ -240,13 +240,13 @@ export default function Dashboard() {
                 <Lock className="w-4 h-4" />
                 Solicitar Acesso
               </button>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-400">
                 Status: {requestStatus ? requestStatusLabel[requestStatus] : 'Sem solicitação'}
               </span>
             </div>
           )}
           {!blocked ? (
-            <ExternalLink className="w-5 h-5 text-blue-500" />
+            <ExternalLink className="w-5 h-5 text-blue-400" />
           ) : (
             <Lock className="w-5 h-5 text-amber-500" />
           )}
@@ -256,8 +256,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div className="min-h-screen text-slate-300">
+      <header className="glass-header sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
@@ -265,8 +265,8 @@ export default function Dashboard() {
                 <Bot className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Automation Hub</h1>
-                <p className="text-xs text-slate-500">Portal de Automações</p>
+                <h1 className="text-lg font-bold text-white">Automation Hub</h1>
+                <p className="text-xs text-slate-400">Portal de Automações</p>
               </div>
             </div>
 
@@ -278,7 +278,7 @@ export default function Dashboard() {
                     setFeedback(null)
                     setIsPasswordModalOpen(true)
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <KeyRound className="w-4 h-4" />
                   <span className="hidden sm:inline">Alterar senha</span>
@@ -287,26 +287,28 @@ export default function Dashboard() {
               {canAccessManagement && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <Settings className="w-4 h-4" />
                   <span className="hidden sm:inline">Gestão</span>
                 </Link>
               )}
 
-              <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+              <div className="flex items-center gap-3 pl-4 border-l border-white/10">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-slate-900">{user?.full_name}</p>
-                  <p className="text-xs text-slate-500">{user?.email}</p>
+                  <p className="text-sm font-medium text-white">{user?.full_name}</p>
+                  <p className="text-xs text-slate-400">{user?.email}</p>
                 </div>
-                <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center text-white font-medium">
-                  {safeSubstring(user?.full_name, 0, 1).toUpperCase()}
+                <div className="w-10 h-10 avatar-animated-border">
+                  <div className="avatar-animated-border-inner text-white font-medium">
+                    {safeSubstring(user?.full_name, 0, 1).toUpperCase()}
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                 title="Sair"
               >
                 <LogOut className="w-5 h-5" />
@@ -320,18 +322,18 @@ export default function Dashboard() {
         {feedback && (
           <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
             feedback.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-red-200 bg-red-50 text-red-700'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+              : 'border-red-500/30 bg-red-500/10 text-red-400'
           }`}>
             {feedback.message}
           </div>
         )}
 
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-white">
             Bem-vindo, {user?.full_name}!
           </h2>
-          <p className="text-slate-600 mt-1">
+          <p className="text-slate-400 mt-1">
             {isGlobalAdmin
               ? 'Você está no modo Administrador, com visão global das automações.'
               : isManager
@@ -350,14 +352,14 @@ export default function Dashboard() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar automações..."
-              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
             />
           </div>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="flex items-center gap-3 text-slate-500">
+            <div className="flex items-center gap-3 text-slate-400">
               <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -366,12 +368,12 @@ export default function Dashboard() {
             </div>
           </div>
         ) : filteredActiveAutomations.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-            <LayoutGrid className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">
+          <div className="text-center py-20 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10">
+            <LayoutGrid className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">
               {searchQuery ? 'Nenhuma automação encontrada' : 'Nenhuma automação disponível'}
             </h3>
-            <p className="text-slate-500">
+            <p className="text-slate-400">
               {searchQuery
                 ? 'Tente buscar por outro termo'
                 : 'Entre em contato com o administrador para solicitar acesso'}
@@ -381,11 +383,11 @@ export default function Dashboard() {
           <div className="space-y-10">
             <section>
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Disponíveis para você</h3>
-                <span className="text-sm text-slate-500">{availableAutomations.length} automações</span>
+                <h3 className="text-lg font-semibold text-white">Disponíveis para você</h3>
+                <span className="text-sm text-slate-400">{availableAutomations.length} automações</span>
               </div>
               {availableAutomations.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 text-sm text-slate-400">
                   Nenhuma automação disponível com os filtros atuais.
                 </div>
               ) : (
@@ -398,11 +400,11 @@ export default function Dashboard() {
             {!isGlobalAdmin && (
               <section>
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-900">Sem acesso</h3>
-                  <span className="text-sm text-slate-500">{blockedAutomations.length} automações</span>
+                  <h3 className="text-lg font-semibold text-white">Sem acesso</h3>
+                  <span className="text-sm text-slate-400">{blockedAutomations.length} automações</span>
                 </div>
                 {blockedAutomations.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 text-sm text-slate-400">
                     Você já possui acesso a todas as automações ativas listadas.
                   </div>
                 ) : (
@@ -416,9 +418,9 @@ export default function Dashboard() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 mt-auto">
+      <footer className="border-t border-white/10 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-slate-400">
             © {new Date().getFullYear()} Automation Hub. Todos os direitos reservados.
           </p>
         </div>
@@ -426,40 +428,40 @@ export default function Dashboard() {
 
       {isPasswordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-white/10 px-6 py-4">
               <KeyRound className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-slate-900">Alterar senha</h3>
+              <h3 className="text-lg font-semibold text-white">Alterar senha</h3>
             </div>
             <form onSubmit={handleSubmitPassword} className="space-y-4 px-6 py-5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Senha atual</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Senha atual</label>
                 <input
                   type="password"
                   required
                   value={passwordData.current_password}
                   onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nova senha</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Nova senha</label>
                 <input
                   type="password"
                   required
                   value={passwordData.new_password}
                   onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nova senha</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Confirmar nova senha</label>
                 <input
                   type="password"
                   required
                   value={passwordData.confirm_password}
                   onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
@@ -469,7 +471,7 @@ export default function Dashboard() {
                     setIsPasswordModalOpen(false)
                     setPasswordData({ current_password: '', new_password: '', confirm_password: '' })
                   }}
-                  className="rounded-lg px-4 py-2 text-slate-600 hover:bg-slate-100"
+                  className="rounded-lg px-4 py-2 text-slate-300 hover:text-white hover:bg-white/10"
                 >
                   Cancelar
                 </button>
