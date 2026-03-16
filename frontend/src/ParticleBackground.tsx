@@ -18,7 +18,8 @@ class DataStream {
 
   reset(w: number, h: number) {
     this.length = Math.random() * 500 + 400; // Comprimento do feixe (400 a 900)
-    this.x = -this.length - 50; // Começa totalmente escondido à esquerda
+    const horizontalOffset = Math.max(w * 0.25, 1);
+    this.x = -this.length - 50 - Math.random() * horizontalOffset; // Começa escondido à esquerda, com variação
     this.y = Math.random() * h;
     this.speed = Math.random() * 0.2 + 0.1; // Velocidade "meditativa"
     this.baseAmp1 = (Math.random() - 0.5) * 150; // Amplitude da primeira curva de Bezier
